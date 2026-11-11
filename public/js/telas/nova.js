@@ -3,10 +3,11 @@
 import { api } from '../api.js';
 import { $, $$, esc, avisar, avisarErro, comCarregando, hojeISO, agoraHora, seloGravidade } from '../ui.js';
 import { estado, navegar } from '../app.js';
-import { CATEGORIAS, PROCEDIMENTOS, LOCAIS, PAPEIS_ALUNO, RES68, ATIVIDADES_ESTUDO_DIRIGIDO } from '../catalogo.js';
+import { CATEGORIAS, LOCAIS, PAPEIS_ALUNO, RES68, ATIVIDADES_ESTUDO_DIRIGIDO } from '../catalogo.js';
+import { htmlPassos, htmlRegraBO, nomeMacro } from '../passos.js';
 
 // Estado desta tela (zera a cada abertura).
-let passo, categoria, tipo, selecionados;
+let passo, categoria, tipo, tipoDet, selecionados;
 
 export async function render(el) {
   passo = 1; categoria = null; tipo = null;
@@ -46,52 +47,64 @@ function etapaCategoria(etapa, el) {
 // ─── 2. Tipo ─────────────────────────────────────────────────────────────────
 function etapaTipo(etapa, el) {
   const tipos = estado.tipos.filter((t) => t.categoria === categoria);
+  // Agrupa pelas macrocategorias do Protocolo 179 (a–j); tipos sem macro ficam em "Outros".
+  const grupos = {};
+  for (const t of tipos) (grupos[t.macro || 'z'] ||= []).push(t);
+  const ordem = Object.keys(grupos).sort();
+  const item = (t) => `<li><button data-tipo="${t.id}"
+      data-busca="${esc((t.codigo + ' ' + t.descricao + ' ' + (t.definicao || '')).toLowerCase())}">
+      <span class="cod">${esc(t.codigo)}</span>
+      <span class="tipo-txt">${esc(t.descricao)}${t.definicao ? `<small>${esc(t.definicao.slice(0, 160))}${t.definicao.length > 160 ? '…' : ''}</small>` : ''}</span>
+      ${seloGravidade(t.gravidade)}</button></li>`;
   etapa.innerHTML = `
     <div class="cartao">
       <div class="cab-tela"><h2>${esc(CATEGORIAS[categoria].nome)}</h2>
         <button class="btn-link" id="voltar1">← trocar categoria</button></div>
-      <input type="search" id="busca-tipo" placeholder="Digite para filtrar (ex.: boné, intervalo, celular)…" aria-label="Filtrar tipos">
-      <ul class="lista-tipos" id="lista-tipos">
-        ${tipos.map((t) => `<li><button data-tipo="${t.id}" data-busca="${esc((t.codigo + ' ' + t.descricao).toLowerCase())}">
-            <span class="cod">${esc(t.codigo)}</span><span>${esc(t.descricao)}</span>${seloGravidade(t.gravidade)}</button></li>`).join('')}
-      </ul>
+      <input type="search" id="busca-tipo" placeholder="Digite para filtrar (ex.: boné, celular, arma, bullying)…" aria-label="Filtrar tipos">
+      <div id="lista-tipos">
+        ${ordem.map((m) => `<section class="grupo-tipos">
+          ${ordem.length > 1 || m !== 'z' ? `<h3>${m === 'z' ? 'Outros' : esc(nomeMacro(m))}</h3>` : ''}
+          <ul class="lista-tipos">${grupos[m].map(item).join('')}</ul></section>`).join('')}
+      </div>
       ${tipos.length ? '' : '<p class="vazio">Nenhum tipo ativo nesta categoria. A direção pode cadastrar em Administração.</p>'}
     </div>`;
   $('#voltar1', etapa).addEventListener('click', () => { passo = 1; desenhar(el); });
   const busca = $('#busca-tipo', etapa);
   busca.focus();
+  const semAcento = (x) => x.normalize('NFD').replace(/[̀-ͯ]/g, '');
   busca.addEventListener('input', () => {
-    const q = busca.value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    $$('[data-tipo]', etapa).forEach((b) => {
-      const alvo = b.dataset.busca.normalize('NFD').replace(/[̀-ͯ]/g, '');
-      b.parentElement.hidden = q && !alvo.includes(q);
-    });
+    const q = semAcento(busca.value.toLowerCase());
+    $$('[data-tipo]', etapa).forEach((b) => { b.parentElement.hidden = q && !semAcento(b.dataset.busca).includes(q); });
+    $$('.grupo-tipos', etapa).forEach((g) => { g.hidden = !$$('li:not([hidden])', g).length; });
   });
-  $$('[data-tipo]', etapa).forEach((b) => b.addEventListener('click', () => {
-    tipo = estado.tipos.find((t) => t.id === Number(b.dataset.tipo));
-    passo = 3; desenhar(el);
+  $$('[data-tipo]', etapa).forEach((b) => b.addEventListener('click', async () => {
+    try {
+      tipoDet = await api(`/tipos/${Number(b.dataset.tipo)}`);
+      tipo = estado.tipos.find((t) => t.id === Number(b.dataset.tipo));
+      passo = 3; desenhar(el);
+    } catch (e) { avisarErro(e); }
   }));
 }
 
 // ─── 3. Formulário ───────────────────────────────────────────────────────────
 function caixaProtocolo() {
-  const passos = PROCEDIMENTOS[categoria];
+  const passos = tipoDet.passos;
   const urg = categoria === 'urgencia';
-  const titulo = categoria === 'administrativa'
-    ? `Intervenções pedagógicas já realizadas — Art. 7º, ${RES68}`
-    : 'Protocolo 179 — procedimentos (marque o que já foi feito)';
+  const titulo = tipoDet.passos_proprios
+    ? `Protocolo 179 — ${tipo.codigo} ${tipo.descricao}: marque o que já foi feito`
+    : `Intervenções pedagógicas já realizadas — Art. 7º, ${RES68}`;
   return `<fieldset class="protocolo prot-${categoria}">
       <legend>${titulo}</legend>
       ${urg ? `<div class="telefones">
           <a href="tel:190">🚓 PM <b>190</b></a><a href="tel:192">🚑 SAMU <b>192</b></a><a href="tel:193">🚒 Bombeiros <b>193</b></a></div>` : ''}
-      ${passos.map((p) => `<label class="check"><input type="checkbox" name="prot" value="${p.k}"> ${esc(p.t)}</label>`).join('')}
-      ${categoria === 'administrativa' ? `<div id="aviso-estudo" class="aviso-norma" hidden>
+      ${htmlPassos(passos)}
+      ${!tipoDet.passos_proprios ? `<div id="aviso-estudo" class="aviso-norma" hidden>
           <b>Estudo dirigido (Art. 7º, IX e Art. 8º):</b> sempre sob supervisão de integrante da equipe gestora, com atividades
           pedagógicas e sem prejuízo da aprendizagem. É vedado usá-lo como castigo ou segregação (§ 6º). Se for reiterado,
           comunique a família e inclua no plano individual de acompanhamento (§ 5º).
           <br>Atividades possíveis: ${ATIVIDADES_ESTUDO_DIRIGIDO.map(esc).join(' · ')}.</div>
         <small>As intervenções não são respostas automáticas: escolha a partir da análise da situação (Art. 7º, § 1º).</small>`
-        : '<small>A equipe gestora completa os demais passos na tela de acompanhamento.</small>'}
+        : '<small>Passos do Protocolo 179 — 3ª versão. A equipe gestora completa os demais na tela de acompanhamento.</small>'}
     </fieldset>`;
 }
 
@@ -100,9 +113,12 @@ function etapaForm(etapa, el) {
     <form id="form-occ" class="cartao" novalidate>
       <div class="tipo-escolhido cat-borda-${categoria}">
         <div><small>${esc(CATEGORIAS[categoria].nome)}</small>
-          <strong>${esc(tipo.codigo)} · ${esc(tipo.descricao)}</strong></div>
+          <strong>${esc(tipo.codigo)} · ${esc(tipo.descricao)}</strong>
+          ${tipo.macro ? `<small>Macrocategoria ${esc(nomeMacro(tipo.macro))}</small>` : ''}</div>
         <button type="button" class="btn-link" id="voltar2">trocar</button>
       </div>
+      ${tipoDet.definicao ? `<p class="definicao">${esc(tipoDet.definicao)}</p>` : ''}
+      ${categoria !== 'administrativa' ? htmlRegraBO(tipoDet.bo) : ''}
 
       <div class="grade-3">
         <label>Data * <input type="date" name="data" required value="${hojeISO()}" max="${hojeISO()}"></label>

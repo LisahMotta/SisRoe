@@ -3,7 +3,7 @@
 import { api } from '../api.js';
 import { $, $$, esc, lerForm, avisar, avisarErro, comCarregando, abrirModal, fecharModal, dataHoraBR, seloGravidade } from '../ui.js';
 import { estado, ehAdmin, recarregarCadastros } from '../app.js';
-import { PERFIS, CATEGORIAS, GRAVIDADES } from '../catalogo.js';
+import { PERFIS, CATEGORIAS, GRAVIDADES, MACROS } from '../catalogo.js';
 
 const ABAS = {
   'primeiros-passos': 'Primeiros passos',
@@ -64,7 +64,7 @@ async function primeirosPassos(el) {
       ${item(estado.turmas.length > 0, 'Cadastrar as turmas', '#/admin/turmas')}
       ${item(temAlunos, 'Importar os alunos de cada turma (copiar e colar da planilha da Secretaria Escolar Digital)', '#/admin/turmas')}
       ${item(usuarios.length > 1, 'Cadastrar professores, agentes, POC, coordenação e vice-direção', '#/admin/usuarios')}
-      ${item(false, 'Revisar os tipos de ocorrência e conferir com a versão vigente do Protocolo 179', '#/admin/tipos')}
+      ${item(false, 'Conhecer os tipos de ocorrência: as 50 situações do Protocolo 179 (3ª versão) e as indisciplinas do dia a dia', '#/admin/tipos')}
     </ol>
     <p class="ajuda">Código de acesso da escola: <b>${esc(estado.escola.codigo)}</b>. Todos os servidores usam esse código para entrar.</p>
   </section>`;
@@ -251,10 +251,14 @@ async function tipos(el) {
   const box = novoContainer(el);
   const lista = await api('/tipos?todos=1');
   const optsCat = (sel) => Object.entries(CATEGORIAS).map(([k, v]) => `<option value="${k}" ${sel === k ? 'selected' : ''}>${esc(v.nome)}</option>`).join('');
+  const optsMacro = (sel) => '<option value="">—</option>' + Object.entries(MACROS)
+    .map(([k, v]) => `<option value="${k}" ${sel === k ? 'selected' : ''}>${k}) ${esc(v)}</option>`).join('');
   const optsGrav = (sel) => Object.entries(GRAVIDADES).map(([k, v]) => `<option value="${k}" ${sel === k ? 'selected' : ''}>${v}</option>`).join('');
   box.innerHTML = `
-    <div class="alerta alerta-info">A lista do Protocolo 179 veio do SisRoe original. <b>Confira códigos e nomes com a versão vigente
-      do Protocolo 179 (CONVIVA SP)</b> e ajuste aqui. Tipos já usados não devem ser apagados: desative-os.</div>
+    <div class="alerta alerta-info">Os tipos marcados <b>P179</b> são as 50 situações do <b>Protocolo 179 — 3ª versão</b>,
+      com os passos de cada uma tirados do documento. Os tipos <b>A</b> são indisciplinas do dia a dia (seção 4.28).
+      Tipos já usados não devem ser apagados: desative-os.
+      <div class="acoes"><button class="btn btn-peq" id="btn-atualizar-cat" type="button">Atualizar catálogo do Protocolo 179</button></div></div>
     <form id="form-tipo" class="cartao">
       <h2>Novo tipo</h2>
       <div class="grade-4">
@@ -263,12 +267,16 @@ async function tipos(el) {
         <label>Categoria <select name="categoria">${optsCat('administrativa')}</select></label>
         <label>Gravidade inicial <select name="gravidade">${optsGrav('leve')}</select></label>
       </div>
+      <label>Macrocategoria do Protocolo 179 <select name="macro">${optsMacro('h')}</select></label>
+      <p class="ajuda">Tipos criados pela escola usam o checklist padrão da categoria (para indisciplina: Art. 7º da Res. SEDUC 68/2026).</p>
       <button class="btn btn-primario" type="submit">Adicionar tipo</button>
     </form>
     ${Object.entries(CATEGORIAS).map(([cat, c]) => `<section class="cartao">
       <h2>${esc(c.nome)}</h2>
       <ul class="lista-tipos-admin">${lista.filter((t) => t.categoria === cat).map((t) => `
-        <li class="${t.ativo ? '' : 'inativo'}"><span class="cod">${esc(t.codigo)}</span><span class="desc">${esc(t.descricao)}</span>
+        <li class="${t.ativo ? '' : 'inativo'}"><span class="cod">${esc(t.codigo)}</span>
+          <span class="desc">${esc(t.descricao)}${t.origem === 'protocolo' ? ' <span class="selo selo-p179">P179</span>' : ''}
+            ${t.macro ? `<small>${esc(t.macro)}) ${esc(MACROS[t.macro] || '')}</small>` : ''}</span>
           ${seloGravidade(t.gravidade)}
           <button class="btn btn-peq" data-editar="${t.id}">Editar</button>
           <button class="btn btn-peq" data-toggle="${t.id}">${t.ativo ? 'Desativar' : 'Ativar'}</button></li>`).join('')}</ul>
@@ -282,6 +290,18 @@ async function tipos(el) {
       await recarregarCadastros();
       await tipos(el);
     } catch (err) { avisarErro(err); }
+  });
+
+  $('#btn-atualizar-cat', box).addEventListener('click', async (ev) => {
+    if (!confirm('Atualizar os tipos do Protocolo 179 para a versão que está no sistema? Ocorrências já registradas não mudam.')) return;
+    await comCarregando(ev.target, async () => {
+      try {
+        const r = await api('/tipos/atualizar-protocolo', { metodo: 'POST' });
+        avisar(`Catálogo atualizado: ${r.atualizados} atualizado(s), ${r.criados} novo(s), ${r.desativados} antigo(s) desativado(s).`);
+        await recarregarCadastros();
+        await tipos(el);
+      } catch (err) { avisarErro(err); }
+    });
   });
 
   box.addEventListener('click', async (ev) => {
@@ -300,6 +320,8 @@ async function tipos(el) {
       <label>Descrição <input name="descricao" required maxlength="160" value="${esc(t.descricao)}"></label>
       <div class="grade-2"><label>Categoria <select name="categoria">${optsCat(t.categoria)}</select></label>
       <label>Gravidade inicial <select name="gravidade">${optsGrav(t.gravidade)}</select></label></div>
+      <label>Macrocategoria <select name="macro">${optsMacro(t.macro)}</select></label>
+      ${t.origem === 'protocolo' ? '<p class="ajuda">Os passos desta situação vêm do Protocolo 179 e não são alterados aqui.</p>' : ''}
       <p class="ajuda">Ocorrências já registradas mantêm o nome que tinham no momento do registro.</p>
       <div class="acoes"><button class="btn btn-primario" type="submit">Salvar</button><button class="btn" type="button" data-fechar>Cancelar</button></div>
     </form>`);
@@ -322,6 +344,8 @@ const ACOES = {
   usuario_editado: 'Editou usuário', alunos_importados: 'Importou alunos', tipo_criado: 'Criou tipo de ocorrência',
   tipo_editado: 'Editou tipo de ocorrência', ocorrencia_registrada: 'Registrou ocorrência',
   ocorrencia_acompanhada: 'Atualizou acompanhamento', ocorrencia_cancelada: 'Cancelou ocorrência',
+  catalogo_atualizado: 'Atualizou o catálogo do Protocolo 179', afastamento_registrado: 'Registrou afastamento preventivo',
+  afastamento_atualizado: 'Atualizou afastamento', afastamento_prorrogar: 'Prorrogou afastamento', afastamento_encerrar: 'Encerrou afastamento',
 };
 async function auditoria(el) {
   const lista = await api('/auditoria');

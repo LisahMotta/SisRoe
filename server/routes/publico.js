@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 import * as db from '../db.js';
 import { gerarToken } from '../auth.js';
 import { ErroHttp, txt, obrigatorio, senhaForte, MSG_SENHA, rota } from '../util.js';
-import { TIPOS_PADRAO } from '../../public/js/catalogo.js';
+import { semearTipos } from '../tipos.js';
 
 const r = express.Router();
 
@@ -60,12 +60,7 @@ r.post('/escolas', limiteCadastro, rota(async (req, res) => {
       'INSERT INTO usuarios (escola_id, nome, login, perfil, senha_hash, ativo, trocar_senha, criado_em) VALUES (?,?,?,?,?,1,0,?)',
       [id, adminNome, login, perfil, hash, agora]
     );
-    for (const t of TIPOS_PADRAO) {
-      await tx.run(
-        'INSERT INTO tipos (escola_id, codigo, descricao, categoria, gravidade, ativo) VALUES (?,?,?,?,?,1)',
-        [id, t.codigo, t.descricao, t.categoria, t.gravidade]
-      );
-    }
+    await semearTipos(tx, id);
     return id;
   });
   await db.auditar(escolaId, { nome: adminNome }, 'escola_cadastrada', { codigo });

@@ -1,28 +1,47 @@
-// catalogo.js — catálogo padrão de tipos de ocorrência e procedimentos.
-// Este arquivo é usado pelo servidor (para criar os tipos de cada escola nova)
-// e pelo navegador (para mostrar os procedimentos do Protocolo 179).
+// catalogo.js — listas e rótulos usados pelo servidor e pelo navegador.
 //
-// As intervenções administrativas, os níveis de resposta e as regras do
-// afastamento preventivo seguem a Resolução SEDUC nº 68, de 19/06/2026.
-//
-// IMPORTANTE: a lista do Protocolo 179 abaixo veio do SisRoe original.
-// Confira numeração e nomes com o PDF oficial da 3ª versão do Protocolo 179
-// (CONVIVA SP / SEDUC-SP). Cada escola pode editar seus tipos pela tela
-// Administração → Tipos de ocorrência, sem mexer neste código.
+// • As 50 situações do Protocolo 179 — 3ª versão (com os passos de cada uma)
+//   ficam em server/protocolo179.js, gerado a partir do documento oficial.
+// • As intervenções administrativas, os níveis de resposta e as regras do
+//   afastamento preventivo seguem a Resolução SEDUC nº 68, de 19/06/2026.
+// • Cada escola pode editar seus tipos em Administração → Tipos de ocorrência.
 
+// Agrupamento do SisRoe para agilizar o registro (o Protocolo usa as macrocategorias abaixo).
 export const CATEGORIAS = {
   urgencia: {
-    nome: 'Urgência / Emergência',
-    resumo: 'Risco à vida ou à integridade. Protocolo 179 — agir imediatamente.',
+    nome: 'Emergência',
+    resumo: 'Risco imediato à vida ou à segurança: acionar 190, 192, 193 ou o Botão do Pânico primeiro.',
   },
   grave: {
-    nome: 'Grave (Protocolo 179)',
-    resumo: 'Violência, violação de direitos ou possível crime. Protocolo 179.',
+    nome: 'Protocolo 179',
+    resumo: 'Violências, violência sexual, substâncias, patrimônio, alertas comportamentais e outras situações de risco.',
   },
   administrativa: {
-    nome: 'Administrativa / Disciplinar',
-    resumo: 'Indisciplina e rotina escolar: sair da sala, boné, caderno, intervalo…',
+    nome: 'Indisciplina / Administrativa',
+    resumo: 'Descumprimento de normas: sair da sala, boné, caderno, celular, atrasos, intervalo…',
   },
+};
+
+// Macrocategorias do capítulo 4 do Protocolo 179 — 3ª versão (alinhadas à Plataforma Conviva).
+export const MACROS = {
+  a: 'Acidentes e eventos inesperados',
+  b: 'Violências e conflitos interpessoais',
+  c: 'Violência sexual',
+  d: 'Envolvimento com substâncias psicoativas',
+  e: 'Incidentes relacionados ao patrimônio',
+  f: 'Alertas comportamentais',
+  g: 'Porte ou posse de armas',
+  h: 'Indisciplina e descumprimento de normas',
+  i: 'Ataque ativo',
+  j: 'Outras situações de vulnerabilidade e risco',
+};
+
+// Boletim de Ocorrência — seção 1.4.4 do Protocolo 179 (3ª versão).
+export const REGRAS_BO = {
+  escola: 'A escola deve registrar o B.O. (dever institucional): indício de crime, violência grave, arma, tráfico, invasão ou dano ao patrimônio.',
+  interessado: 'O registro cabe à vítima/família: a escola orienta (e documenta a orientação), mas não registra em nome de terceiros.',
+  nao: 'Não há necessidade de B.O.: tratar pedagogicamente e, quando for o caso, com a rede protetiva.',
+  avaliar: 'Avaliar: se houver crime público, violência grave ou risco coletivo, a escola registra; se atinge a pessoa de forma individual, orientar a família sobre o direito de registrar.',
 };
 
 export const GRAVIDADES = {
@@ -67,8 +86,10 @@ export const LOCAIS = [
   'Entorno da escola', 'Ambiente virtual / redes sociais', 'Outro',
 ];
 
-// Procedimentos por categoria. A chave (k) é gravada na ocorrência quando o
-// passo é marcado como feito, então não mude as chaves já em uso.
+// Procedimentos usados quando o tipo não tem passos próprios (tipos criados pela
+// escola e as indisciplinas administrativas). Os 50 tipos do Protocolo trazem os
+// passos do documento. A chave (k) é gravada na ocorrência quando o passo é
+// marcado, então não mude as chaves já em uso.
 export const PROCEDIMENTOS = {
   urgencia: [
     { k: 'seguranca', t: 'Manter a calma e garantir a segurança de todos' },
@@ -102,6 +123,7 @@ export const PROCEDIMENTOS = {
     { k: 'rede', t: 'VIII — Articulação com a rede protetiva ou órgãos competentes' },
     { k: 'estudo_dirigido', t: 'IX — Encaminhamento temporário a outro espaço (estudo dirigido), sob supervisão da gestão' },
     { k: 'outras', t: 'X — Outras intervenções pedagógicas compatíveis com a proteção integral' },
+    { k: 'conviva', t: 'Registrar o episódio na Plataforma Conviva (Protocolo 179, 4.28 c)' },
   ],
 };
 
@@ -132,55 +154,23 @@ export const HIPOTESES_AFASTAMENTO = {
 // Art. 11, §§ 5º e 6º — prazo inicial máximo, prorrogável uma vez por igual período.
 export const AFASTAMENTO_MAX_DIAS = 5;
 
-// Tipos padrão. categoria: urgencia | grave | administrativa.
-// gravidade: gravidade inicial sugerida (a gestão pode aumentar depois).
-export const TIPOS_PADRAO = [
-  // ── Administrativas / disciplinares ─────────────────────────────────────
-  { codigo: 'A1', categoria: 'administrativa', gravidade: 'leve', descricao: 'Saiu da sala sem permissão' },
-  { codigo: 'A2', categoria: 'administrativa', gravidade: 'leve', descricao: 'Não abriu o caderno / recusou-se a realizar a atividade' },
-  { codigo: 'A3', categoria: 'administrativa', gravidade: 'leve', descricao: 'Recusou-se a tirar o boné / chapéu / capuz' },
-  { codigo: 'A4', categoria: 'administrativa', gravidade: 'leve', descricao: 'Incidente no intervalo' },
-  { codigo: 'A5', categoria: 'administrativa', gravidade: 'media', descricao: 'Acidente no intervalo ou em aula (sem necessidade de pronto-socorro)' },
-  { codigo: 'A6', categoria: 'administrativa', gravidade: 'leve', descricao: 'Uso indevido de celular / equipamento eletrônico' },
-  { codigo: 'A7', categoria: 'administrativa', gravidade: 'leve', descricao: 'Perturbou / atrapalhou a aula' },
-  { codigo: 'A8', categoria: 'administrativa', gravidade: 'leve', descricao: 'Dormiu durante a aula' },
-  { codigo: 'A9', categoria: 'administrativa', gravidade: 'leve', descricao: 'Sem material escolar' },
-  { codigo: 'A10', categoria: 'administrativa', gravidade: 'leve', descricao: 'Sem uniforme escolar' },
-  { codigo: 'A11', categoria: 'administrativa', gravidade: 'leve', descricao: 'Atrasos repetidos' },
-  { codigo: 'A12', categoria: 'administrativa', gravidade: 'media', descricao: 'Saiu da escola mais cedo sem autorização' },
-  { codigo: 'A13', categoria: 'administrativa', gravidade: 'leve', descricao: 'Linguagem inadequada (palavrão)' },
-  { codigo: 'A14', categoria: 'administrativa', gravidade: 'media', descricao: 'Comportamento desrespeitoso com professor(a) ou servidor(a)' },
-  { codigo: 'A15', categoria: 'administrativa', gravidade: 'media', descricao: 'Danificou material da escola ou de colega' },
-  { codigo: 'A16', categoria: 'administrativa', gravidade: 'leve', descricao: 'Outra ocorrência administrativa (descrever no relato)' },
-
-  // ── Protocolo 179 — Urgência / Emergência ───────────────────────────────
-  { codigo: 'I', categoria: 'urgencia', gravidade: 'urgencia', descricao: 'Ameaça / risco iminente à vida (atirador, massacre)' },
-  { codigo: 'II', categoria: 'urgencia', gravidade: 'urgencia', descricao: 'Fenômenos naturais com risco à unidade escolar (inundação, desabamento)' },
-  { codigo: 'XII', categoria: 'urgencia', gravidade: 'urgencia', descricao: 'Mal súbito com resultado morte' },
-  { codigo: 'XX', categoria: 'urgencia', gravidade: 'urgencia', descricao: 'Fake news — ameaça de massacre / atentado' },
-  { codigo: 'XXI', categoria: 'urgencia', gravidade: 'urgencia', descricao: 'Posse de arma (branca, de fogo, réplica ou objeto perigoso)' },
-  { codigo: 'XXII', categoria: 'urgencia', gravidade: 'urgencia', descricao: 'Agressão física grave (lesão corporal)' },
-  { codigo: 'XXIII', categoria: 'urgencia', gravidade: 'urgencia', descricao: 'Homicídio / tentativa de homicídio' },
-  { codigo: 'XXV', categoria: 'urgencia', gravidade: 'urgencia', descricao: 'Importunação sexual' },
-  { codigo: 'XXVII', categoria: 'urgencia', gravidade: 'urgencia', descricao: 'Violência contra criança/adolescente / abuso sexual' },
-
-  // ── Protocolo 179 — Graves ──────────────────────────────────────────────
-  { codigo: 'III', categoria: 'grave', gravidade: 'grave', descricao: 'Agressão verbal entre estudantes e/ou servidores' },
-  { codigo: 'IV', categoria: 'grave', gravidade: 'grave', descricao: 'Uso de tabaco, cigarro eletrônico ou fumígeno' },
-  { codigo: 'V', categoria: 'grave', gravidade: 'grave', descricao: 'Porte / uso de entorpecentes' },
-  { codigo: 'VI', categoria: 'grave', gravidade: 'grave', descricao: 'Bullying / cyberbullying / humilhação sistemática' },
-  { codigo: 'VII', categoria: 'grave', gravidade: 'grave', descricao: 'Estudante com sinais de maus-tratos ou abandono' },
-  { codigo: 'VIII', categoria: 'grave', gravidade: 'grave', descricao: 'Sinais de alerta / tentativa de suicídio' },
-  { codigo: 'IX', categoria: 'grave', gravidade: 'grave', descricao: 'Desaparecimento de estudante comunicado por familiares' },
-  { codigo: 'X', categoria: 'grave', gravidade: 'grave', descricao: 'Mal súbito (comunidade escolar)' },
-  { codigo: 'XI', categoria: 'grave', gravidade: 'grave', descricao: 'Mal súbito com necessidade de condução a pronto-socorro' },
-  { codigo: 'XIII', categoria: 'grave', gravidade: 'grave', descricao: 'Estelionato / falso PIX' },
-  { codigo: 'XIV', categoria: 'grave', gravidade: 'grave', descricao: 'Roubo / furto entre membros da unidade escolar' },
-  { codigo: 'XV', categoria: 'grave', gravidade: 'grave', descricao: 'Racismo / injúria racial' },
-  { codigo: 'XVI', categoria: 'grave', gravidade: 'grave', descricao: 'Homofobia / transfobia' },
-  { codigo: 'XVII', categoria: 'grave', gravidade: 'grave', descricao: 'Dano ao patrimônio público' },
-  { codigo: 'XVIII', categoria: 'grave', gravidade: 'grave', descricao: 'Invasão da unidade escolar' },
-  { codigo: 'XIX', categoria: 'grave', gravidade: 'grave', descricao: 'Ameaça (palavra, escrito ou gesto)' },
-  { codigo: 'XXIV', categoria: 'grave', gravidade: 'grave', descricao: 'Ato obsceno' },
-  { codigo: 'XXVI', categoria: 'grave', gravidade: 'grave', descricao: 'Assédio moral ou sexual' },
+// Indisciplinas do dia a dia (macrocategoria "h" do Protocolo, seção 4.28 Indisciplina).
+// São criadas em toda escola nova, junto com as 50 situações do Protocolo 179.
+// O uso de celular está na situação 4.46 do Protocolo.
+export const TIPOS_ADMINISTRATIVOS = [
+  { codigo: 'A1', macro: 'h', gravidade: 'leve', descricao: 'Saiu da sala sem permissão' },
+  { codigo: 'A2', macro: 'h', gravidade: 'leve', descricao: 'Não abriu o caderno / recusou-se a realizar a atividade' },
+  { codigo: 'A3', macro: 'h', gravidade: 'leve', descricao: 'Recusou-se a tirar o boné / chapéu / capuz' },
+  { codigo: 'A4', macro: 'h', gravidade: 'leve', descricao: 'Incidente no intervalo' },
+  { codigo: 'A5', macro: 'a', gravidade: 'media', descricao: 'Acidente leve no intervalo ou em aula (sem necessidade de pronto-socorro)' },
+  { codigo: 'A7', macro: 'h', gravidade: 'leve', descricao: 'Perturbou / atrapalhou a aula' },
+  { codigo: 'A8', macro: 'h', gravidade: 'leve', descricao: 'Dormiu durante a aula' },
+  { codigo: 'A9', macro: 'h', gravidade: 'leve', descricao: 'Sem material escolar' },
+  { codigo: 'A10', macro: 'h', gravidade: 'leve', descricao: 'Sem uniforme escolar' },
+  { codigo: 'A11', macro: 'h', gravidade: 'leve', descricao: 'Atrasos repetidos' },
+  { codigo: 'A12', macro: 'h', gravidade: 'media', descricao: 'Saiu da escola mais cedo sem autorização' },
+  { codigo: 'A13', macro: 'h', gravidade: 'leve', descricao: 'Linguagem inadequada (palavrão)' },
+  { codigo: 'A14', macro: 'h', gravidade: 'media', descricao: 'Comportamento desrespeitoso com professor(a) ou servidor(a)' },
+  { codigo: 'A15', macro: 'h', gravidade: 'media', descricao: 'Danificou material da escola ou de colega' },
+  { codigo: 'A16', macro: 'h', gravidade: 'leve', descricao: 'Outra indisciplina (descrever no relato)' },
 ];

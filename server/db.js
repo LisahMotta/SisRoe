@@ -174,6 +174,18 @@ const MIGRACOES = [
   'ALTER TABLE ocorrencias ADD COLUMN data_conhecimento TEXT',
   'ALTER TABLE ocorrencias ADD COLUMN analise_inicial TEXT',
   'ALTER TABLE ocorrencias ADD COLUMN manifestacao_estudante TEXT',
+  // Protocolo 179 — 3ª versão: passos próprios de cada situação, macrocategoria,
+  // regra de B.O. (seção 1.4.4) e devolutiva da rede protetiva (seção 1.2).
+  'ALTER TABLE tipos ADD COLUMN macro TEXT',
+  'ALTER TABLE tipos ADD COLUMN bo TEXT',
+  'ALTER TABLE tipos ADD COLUMN definicao TEXT',
+  'ALTER TABLE tipos ADD COLUMN passos TEXT',
+  'ALTER TABLE tipos ADD COLUMN origem TEXT',
+  'ALTER TABLE ocorrencias ADD COLUMN macro TEXT',
+  'ALTER TABLE ocorrencias ADD COLUMN passos TEXT',
+  'ALTER TABLE ocorrencias ADD COLUMN bo_regra TEXT',
+  'ALTER TABLE ocorrencias ADD COLUMN bo_orientado INTEGER',
+  'ALTER TABLE ocorrencias ADD COLUMN rede_devolutiva TEXT',
 ];
 
 // Converte "?" em "$1, $2…" para o PostgreSQL.

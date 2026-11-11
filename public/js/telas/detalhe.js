@@ -5,13 +5,14 @@ import { api } from '../api.js';
 import { $, $$, esc, dataBR, dataHoraBR, seloCategoria, seloGravidade, seloStatus, lerForm, avisar, avisarErro,
   comCarregando, abrirModal, fecharModal, hojeISO, imprimirAvulso } from '../ui.js';
 import { estado, ehGestao, ehAdmin } from '../app.js';
-import { CATEGORIAS, GRAVIDADES, ORDEM_GRAVIDADE, PROCEDIMENTOS, PAPEIS_ALUNO, PERFIS, NIVEIS, RES68,
+import { CATEGORIAS, GRAVIDADES, ORDEM_GRAVIDADE, PAPEIS_ALUNO, PERFIS, NIVEIS, RES68,
   HIPOTESES_AFASTAMENTO, AFASTAMENTO_MAX_DIAS } from '../catalogo.js';
+import { htmlPassos, htmlPassosDoc, htmlRegraBO, nomeMacro } from '../passos.js';
 
 export async function render(el, [id]) {
   const o = await api(`/ocorrencias/${Number(id)}`);
   const e = estado.escola;
-  const passos = PROCEDIMENTOS[o.categoria] || [];
+  const passos = o.passos || [];
   const feitos = new Set(o.protocolo);
   const podeAcompanhar = ehGestao() && o.status !== 'cancelada';
   const reincidente = o.alunos.some((a) => a.anteriores >= 2);
@@ -44,6 +45,7 @@ export async function render(el, [id]) {
 
       <dl class="doc-campos">
         <div><dt>Tipo</dt><dd>${esc(o.tipo_codigo)} · ${esc(o.tipo_descricao)}</dd></div>
+        ${o.macro ? `<div><dt>Macrocategoria (Protocolo 179)</dt><dd>${esc(nomeMacro(o.macro))}</dd></div>` : ''}
         <div><dt>Data e horário do fato</dt><dd>${dataBR(o.data)} às ${esc(o.hora)}</dd></div>
         ${o.data_conhecimento ? `<div><dt>Escola tomou conhecimento em</dt><dd>${dataBR(o.data_conhecimento)}</dd></div>` : ''}
         <div><dt>Local</dt><dd>${esc(o.local)}</dd></div>
@@ -68,8 +70,8 @@ export async function render(el, [id]) {
       ${o.manifestacao_estudante ? `<h2>Manifestação do(a) estudante</h2><p class="relato">${esc(o.manifestacao_estudante)}</p>` : ''}
       ${o.providencias ? `<h2>Providências</h2><p class="relato">${esc(o.providencias)}</p>` : ''}
 
-      <h2>${o.categoria === 'administrativa' ? `Intervenções pedagógicas (Art. 7º, ${RES68})` : 'Procedimentos — Protocolo 179 · CONVIVA SP'}</h2>
-      <ul class="doc-checklist">${passos.map((p) => `<li class="${feitos.has(p.k) ? 'ok' : ''}">${feitos.has(p.k) ? '☑' : '☐'} ${esc(p.t)}</li>`).join('')}</ul>
+      <h2>${tituloPassos(o)}</h2>
+      ${htmlPassosDoc(passos, feitos)}
 
       <dl class="doc-campos">
         <div><dt>Família comunicada</dt><dd>${o.familia_comunicada
@@ -77,7 +79,8 @@ export async function render(el, [id]) {
           ${o.familia_obs ? `<br><small>${esc(o.familia_obs)}</small>` : ''}</dd></div>
         <div><dt>Conselho Tutelar acionado</dt><dd>${o.conselho_tutelar ? 'Sim' : 'Não'}</dd></div>
         <div><dt>Registro na Plataforma CONVIVA</dt><dd>${o.conviva_registrado ? 'Sim' : 'Não'}</dd></div>
-        <div><dt>Boletim de Ocorrência</dt><dd>${esc(o.bo_numero || '—')}</dd></div>
+        <div><dt>Boletim de Ocorrência</dt><dd>${esc(o.bo_numero || '—')}${o.bo_orientado ? '<br><small>Família orientada sobre o direito de registrar B.O.</small>' : ''}</dd></div>
+        ${o.rede_devolutiva ? `<div><dt>Devolutiva da rede protetiva</dt><dd>${esc(o.rede_devolutiva)}</dd></div>` : ''}
         ${o.status === 'encerrada' ? `<div><dt>Encerrada por</dt><dd>${esc(o.encerrado_por_nome || '')} em ${dataHoraBR(o.encerrado_em)}</dd></div>` : ''}
       </dl>
 
@@ -153,8 +156,12 @@ export async function render(el, [id]) {
       const nivelEl = $('input[name=nivel]:checked', fa);
       const corpo = { ...d, nivel: nivelEl ? nivelEl.value : '', protocolo: $$('input[name=prot]:checked', fa).map((c) => c.value) };
       delete corpo.prot;
-      if (d.status === 'encerrada' && o.categoria !== 'administrativa' && !d.conviva_registrado) {
-        if (!confirm('Esta ocorrência é do Protocolo 179 e não está marcada como registrada na Plataforma CONVIVA. Encerrar mesmo assim?')) return;
+      const pendentes = passos.length - corpo.protocolo.length;
+      if (d.status === 'encerrada' && o.status !== 'encerrada' && pendentes > 0) {
+        if (!confirm(`Há ${pendentes} passo(s) não marcado(s). O Protocolo 179 orienta encerrar só depois de concluídas todas as providências. Encerrar mesmo assim?`)) return;
+      }
+      if (d.status === 'encerrada' && !d.conviva_registrado) {
+        if (!confirm('A ocorrência não está marcada como registrada na Plataforma CONVIVA (o Protocolo 179 pede o registro de todas as situações de convivência, inclusive indisciplina). Encerrar mesmo assim?')) return;
       }
       await comCarregando(fa.querySelector('[type=submit]'), async () => {
         try {
@@ -167,6 +174,11 @@ export async function render(el, [id]) {
   }
 
   ligarAfastamentos(el, o, recarregar);
+}
+
+function tituloPassos(o) {
+  const proprios = o.passos?.some((p) => /^[a-z]$/.test(p.k));
+  return proprios ? `Procedimentos — Protocolo 179 (3ª versão), ${o.tipo_codigo}` : `Intervenções pedagógicas (Art. 7º, ${RES68})`;
 }
 
 function formAcompanhamento(o, passos, feitos) {
@@ -195,8 +207,8 @@ function formAcompanhamento(o, passos, feitos) {
       </fieldset>
 
       <fieldset class="protocolo prot-${o.categoria}">
-        <legend>${o.categoria === 'administrativa' ? `Intervenções pedagógicas (Art. 7º)` : 'Procedimentos do Protocolo 179'}</legend>
-        ${passos.map((p) => `<label class="check"><input type="checkbox" name="prot" value="${p.k}" ${feitos.has(p.k) ? 'checked' : ''}> ${esc(p.t)}</label>`).join('')}
+        <legend>${tituloPassos(o)}</legend>
+        ${htmlPassos(passos, feitos)}
       </fieldset>
 
       <fieldset>
@@ -215,6 +227,11 @@ function formAcompanhamento(o, passos, feitos) {
         <legend>Rede de proteção e registros</legend>
         <label class="check"><input type="checkbox" name="conviva_registrado" ${o.conviva_registrado ? 'checked' : ''}> Registrada na Plataforma CONVIVA</label>
         <label class="check"><input type="checkbox" name="conselho_tutelar" ${o.conselho_tutelar ? 'checked' : ''}> Conselho Tutelar acionado</label>
+        <label>Devolutiva recebida do Conselho Tutelar / rede protetiva
+          <textarea name="rede_devolutiva" rows="2" maxlength="2000" placeholder="O que o serviço acionado respondeu, e quando.">${esc(o.rede_devolutiva || '')}</textarea>
+          <small>Protocolo 179, seção 1.2: o registro só é encerrado com a evidência da comunicação e a devolutiva do serviço acionado.</small></label>
+        ${htmlRegraBO(o.bo_regra)}
+        <label class="check"><input type="checkbox" name="bo_orientado" ${o.bo_orientado ? 'checked' : ''}> A família/vítima foi orientada sobre a possibilidade de registrar B.O.</label>
         <label>Nº do Boletim de Ocorrência (se houver) <input name="bo_numero" maxlength="40" value="${esc(o.bo_numero || '')}"></label>
       </fieldset>
 

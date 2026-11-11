@@ -13,7 +13,8 @@ import express from 'express';
 import * as db from '../db.js';
 import { exigeGestao, exigeAdmin, ehGestao } from '../auth.js';
 import { ErroHttp, txt, obrigatorio, dataValida, horaValida, rota } from '../util.js';
-import { ORDEM_GRAVIDADE, PAPEIS_ALUNO, PROCEDIMENTOS, STATUS, CATEGORIAS, GRAVIDADES, NIVEIS } from '../../public/js/catalogo.js';
+import { ORDEM_GRAVIDADE, PAPEIS_ALUNO, PROCEDIMENTOS, STATUS, CATEGORIAS, GRAVIDADES, NIVEIS, MACROS } from '../../public/js/catalogo.js';
+import { passosDoTipo } from '../tipos.js';
 
 const r = express.Router();
 
@@ -29,10 +30,19 @@ async function carregar(req, id) {
   return o;
 }
 
+/** Passos da ocorrência: a cópia gravada no registro (ou os padrão da categoria, em registros antigos). */
+function passosDaOcorrencia(o) {
+  let p = [];
+  try { p = JSON.parse(o.passos || '[]'); } catch { /* ignora */ }
+  return p.length ? p : PROCEDIMENTOS[o.categoria] || [];
+}
+
 function formatar(o) {
   return {
     ...o,
     numero: numero(o),
+    passos: o.passos !== undefined ? passosDaOcorrencia(o) : undefined,
+    bo_orientado: !!o.bo_orientado,
     protocolo: (() => { try { return JSON.parse(o.protocolo || '[]'); } catch { return []; } })(),
     familia_comunicada: !!o.familia_comunicada,
     conselho_tutelar: !!o.conselho_tutelar,
@@ -80,7 +90,7 @@ r.get('/ocorrencias', rota(async (req, res) => {
   const { where, params } = filtros(req);
   const limite = Math.min(Number(req.query.limite) || 200, 500);
   const lista = await db.all(
-    `SELECT o.id, o.ano, o.seq, o.tipo_codigo, o.tipo_descricao, o.categoria, o.gravidade, o.data, o.hora,
+    `SELECT o.id, o.ano, o.seq, o.tipo_codigo, o.tipo_descricao, o.categoria, o.macro, o.gravidade, o.data, o.hora,
        o.local, o.turma_nome, o.status, o.registrado_por_nome, o.criado_em
      FROM ocorrencias o WHERE ${where} ORDER BY o.data DESC, o.hora DESC, o.id DESC LIMIT ${limite}`,
     params
@@ -94,10 +104,10 @@ r.get('/ocorrencias.csv', exigeGestao, rota(async (req, res) => {
   const lista = await anexarAlunos(req.usuario.escola_id, await db.all(
     `SELECT o.* FROM ocorrencias o WHERE ${where} ORDER BY o.data, o.hora, o.id LIMIT 5000`, params));
   const cel = (v) => `"${String(v ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
-  const cab = ['Número', 'Data', 'Hora', 'Categoria', 'Código', 'Tipo', 'Gravidade', 'Turma', 'Local', 'Alunos',
+  const cab = ['Número', 'Data', 'Hora', 'Categoria', 'Macrocategoria (Protocolo 179)', 'Código', 'Tipo', 'Gravidade', 'Turma', 'Local', 'Alunos',
     'Status', 'Família comunicada', 'Conselho Tutelar', 'Registro CONVIVA', 'B.O.', 'Registrado por', 'Relato'];
   const linhas = lista.map((o) => [
-    o.numero, o.data.split('-').reverse().join('/'), o.hora, CATEGORIAS[o.categoria]?.nome, o.tipo_codigo,
+    o.numero, o.data.split('-').reverse().join('/'), o.hora, CATEGORIAS[o.categoria]?.nome, MACROS[o.macro] || '', o.tipo_codigo,
     o.tipo_descricao, GRAVIDADES[o.gravidade], o.turma_nome, o.local,
     o.alunos.map((a) => `${a.nome} (${PAPEIS_ALUNO[a.papel] || a.papel})`).join('; '),
     STATUS[o.status], o.familia_comunicada ? 'Sim' : 'Não', o.conselho_tutelar ? 'Sim' : 'Não',
@@ -185,8 +195,9 @@ r.post('/ocorrencias', rota(async (req, res) => {
     throw new ErroHttp(400, 'Selecione pelo menos um aluno envolvido.');
   }
 
-  const protocolo = Array.isArray(b.protocolo)
-    ? b.protocolo.filter((k) => PROCEDIMENTOS[tipo.categoria].some((p) => p.k === k)) : [];
+  // Guarda uma cópia dos passos do tipo: se o catálogo mudar depois, o registro continua fiel.
+  const passos = passosDoTipo(tipo);
+  const protocolo = Array.isArray(b.protocolo) ? b.protocolo.filter((k) => passos.some((p) => p.k === k)) : [];
   const ano = Number(b.data.slice(0, 4));
   const agora = db.agora();
 
@@ -195,11 +206,11 @@ r.post('/ocorrencias', rota(async (req, res) => {
     const id = await tx.insert(
       `INSERT INTO ocorrencias (escola_id, ano, seq, tipo_id, tipo_codigo, tipo_descricao, categoria, gravidade,
          data, hora, data_conhecimento, local, turma_id, turma_nome, relato, providencias, protocolo, status,
-         registrado_por_id, registrado_por_nome, registrado_por_perfil, criado_em, atualizado_em)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'aberta',?,?,?,?,?)`,
+         registrado_por_id, registrado_por_nome, registrado_por_perfil, criado_em, atualizado_em, macro, passos, bo_regra)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'aberta',?,?,?,?,?,?,?,?)`,
       [eid, ano, Number(prox), tipo.id, tipo.codigo, tipo.descricao, tipo.categoria, tipo.gravidade,
        b.data, b.hora, dataConhecimento, local, turma?.id ?? null, turma?.nome ?? null, relato, txt(b.providencias, 4000),
-       JSON.stringify(protocolo), u.id, u.nome, u.perfil, agora, agora]
+       JSON.stringify(protocolo), u.id, u.nome, u.perfil, agora, agora, tipo.macro || null, JSON.stringify(passos), tipo.bo || null]
     );
     for (const a of alunos) {
       await tx.run(
@@ -253,23 +264,32 @@ r.put('/ocorrencias/:id/acompanhamento', exigeGestao, rota(async (req, res) => {
     throw new ErroHttp(400, 'Para o Nível III, registre a síntese da análise inicial com os elementos objetivos da situação (Art. 5º, § 3º).');
   }
   const encerrando = status === 'encerrada' && o.status !== 'encerrada';
+  const passos = passosDaOcorrencia(o);
   const protocolo = Array.isArray(b.protocolo)
-    ? b.protocolo.filter((k) => PROCEDIMENTOS[o.categoria].some((p) => p.k === k))
+    ? b.protocolo.filter((k) => passos.some((p) => p.k === k))
     : JSON.parse(o.protocolo || '[]');
+  const conselho = b.conselho_tutelar !== undefined ? !!b.conselho_tutelar : !!o.conselho_tutelar;
+  const devolutiva = b.rede_devolutiva !== undefined ? txt(b.rede_devolutiva, 2000) : (o.rede_devolutiva || '');
+  // Protocolo 179, seção 1.2: só encerrar depois de concluídas as providências; quando houve
+  // encaminhamento à rede protetiva, registrar a comunicação e a devolutiva recebida.
+  if (encerrando && conselho && devolutiva.length < 5) {
+    throw new ErroHttp(400, 'Para encerrar, registre a devolutiva recebida do Conselho Tutelar / rede protetiva (Protocolo 179, seção 1.2).');
+  }
   const familiaData = b.familia_data && dataValida(b.familia_data) ? b.familia_data : null;
 
   await db.run(
     `UPDATE ocorrencias SET gravidade = ?, status = ?, protocolo = ?, providencias = ?,
        familia_comunicada = ?, familia_data = ?, familia_meio = ?, familia_obs = ?,
        conselho_tutelar = ?, bo_numero = ?, conviva_registrado = ?,
-       nivel = ?, analise_inicial = ?, manifestacao_estudante = ?,
+       nivel = ?, analise_inicial = ?, manifestacao_estudante = ?, bo_orientado = ?, rede_devolutiva = ?,
        encerrado_por_nome = ?, encerrado_em = ?, atualizado_em = ?
      WHERE id = ? AND escola_id = ?`,
     [gravidade, status, JSON.stringify(protocolo),
      b.providencias !== undefined ? txt(b.providencias, 4000) : o.providencias,
      b.familia_comunicada ? 1 : 0, familiaData, txt(b.familia_meio, 40), txt(b.familia_obs, 1000),
-     b.conselho_tutelar ? 1 : 0, txt(b.bo_numero, 40), b.conviva_registrado ? 1 : 0,
+     conselho ? 1 : 0, txt(b.bo_numero, 40), b.conviva_registrado ? 1 : 0,
      nivel, analise || null, manifestacao || null,
+     b.bo_orientado !== undefined ? (b.bo_orientado ? 1 : 0) : (o.bo_orientado || 0), devolutiva || null,
      encerrando ? u.nome : (status === 'encerrada' ? o.encerrado_por_nome : null),
      encerrando ? db.agora() : (status === 'encerrada' ? o.encerrado_em : null),
      db.agora(), o.id, u.escola_id]
@@ -322,7 +342,7 @@ r.get('/painel', rota(async (req, res) => {
   const p = [u.escola_id, ano];
   if (!ehGestao(u)) { w.push('registrado_por_id = ?'); p.push(u.id); }
   const linhas = await db.all(
-    `SELECT id, categoria, gravidade, status, tipo_codigo, tipo_descricao, turma_nome, data, protocolo,
+    `SELECT id, categoria, macro, gravidade, status, tipo_codigo, tipo_descricao, turma_nome, data, protocolo,
        conselho_tutelar, nivel FROM ocorrencias WHERE ${w.join(' AND ')}`, p);
 
   const mesAtual = new Date().toISOString().slice(0, 7);
@@ -373,6 +393,7 @@ r.get('/painel', rota(async (req, res) => {
     encerradas: conta((l) => l.status === 'encerrada'),
     urgentesAbertas: conta((l) => l.status !== 'encerrada' && ['urgencia', 'grave'].includes(l.categoria)),
     porCategoria: Object.keys(CATEGORIAS).map((c) => ({ categoria: c, qtd: conta((l) => l.categoria === c) })),
+    porMacro: Object.keys(MACROS).map((m) => ({ macro: m, qtd: conta((l) => l.macro === m) })).filter((m) => m.qtd),
     porTipo: agrupa((l) => `${l.tipo_codigo} · ${l.tipo_descricao}`).slice(0, 8),
     porTurma: agrupa((l) => l.turma_nome).slice(0, 10),
     porMes,

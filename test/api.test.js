@@ -242,3 +242,52 @@ test('Res. SEDUC 68/2026: nível, data de conhecimento e afastamento preventivo'
   assert.ok(p.indicadores);
   assert.equal(p.indicadores.porNivel.find((n) => n.nivel === 3).qtd, 1);
 });
+
+test('Protocolo 179 — 3ª versão: 50 situações, passos próprios, devolutiva da rede e atualização do catálogo', async () => {
+  const tipos = (await api('/tipos', { token: A })).dados;
+  const prot = tipos.filter((t) => t.origem === 'protocolo');
+  assert.equal(prot.length, 50);
+  assert.ok(prot.some((t) => t.codigo === '4.50' && /Xenofobia/.test(t.descricao)));
+  assert.ok(!tipos.some((t) => /^[IVXL]+$/.test(t.codigo)), 'sem numeração romana da versão antiga');
+  assert.equal(tipos[0].passos, undefined, 'lista leve, sem passos');
+
+  const arma = prot.find((t) => t.codigo === '4.33');
+  assert.equal(arma.categoria, 'urgencia');
+  assert.equal(arma.macro, 'g');
+  assert.equal(arma.bo, 'escola');
+  const det = (await api(`/tipos/${arma.id}`, { token: profA })).dados;
+  assert.ok(det.passos.length >= 10 && det.passos[0].k === 'a');
+  assert.equal((await api(`/tipos/${arma.id}`, { token: B })).status, 404);
+
+  // Registro guarda a cópia dos passos; só aceita chaves que existem nesses passos.
+  const r = await api('/ocorrencias', { token: A, metodo: 'POST', corpo: {
+    tipo_id: arma.id, data: '2026-05-02', hora: '09:30', local: 'Pátio', turma_id: turmaA,
+    relato: 'Estudante encontrado com estilete na mochila durante o intervalo.', protocolo: ['a', 'b', 'zz', 'acolhimento'],
+    alunos: [{ id: alunosA[2].id, papel: 'autor' }] } });
+  assert.equal(r.status, 201, JSON.stringify(r.dados));
+  let o = (await api(`/ocorrencias/${r.dados.id}`, { token: A })).dados;
+  assert.deepEqual(o.protocolo, ['a', 'b']);
+  assert.equal(o.passos.length, det.passos.length);
+  assert.equal(o.macro, 'g');
+  assert.equal(o.bo_regra, 'escola');
+
+  // Seção 1.2: Conselho Tutelar acionado exige devolutiva para encerrar.
+  const enc = { status: 'encerrada', conselho_tutelar: true, conviva_registrado: true };
+  assert.equal((await api(`/ocorrencias/${r.dados.id}/acompanhamento`, { token: A, metodo: 'PUT', corpo: enc })).status, 400);
+  assert.equal((await api(`/ocorrencias/${r.dados.id}/acompanhamento`, { token: A, metodo: 'PUT',
+    corpo: { ...enc, rede_devolutiva: 'CT informou acompanhamento da família em 05/05.', bo_orientado: true } })).status, 200);
+  o = (await api(`/ocorrencias/${r.dados.id}`, { token: A })).dados;
+  assert.equal(o.status, 'encerrada');
+  assert.equal(o.bo_orientado, true);
+
+  // Atualizar catálogo: desativa tipo antigo em numeração romana e mantém as 50 situações.
+  await api('/tipos', { token: A, metodo: 'POST', corpo: { codigo: 'XXI', descricao: 'Tipo antigo', categoria: 'grave', gravidade: 'grave' } });
+  assert.equal((await api('/tipos/atualizar-protocolo', { token: profA, metodo: 'POST' })).status, 403);
+  const at = (await api('/tipos/atualizar-protocolo', { token: A, metodo: 'POST' })).dados;
+  assert.equal(at.atualizados, 50);
+  assert.equal(at.criados, 0);
+  // O tipo "XXI" foi criado pela escola (origem escola): não é desativado.
+  assert.equal(at.desativados, 0);
+  // A ocorrência já registrada continua com seus passos.
+  assert.equal((await api(`/ocorrencias/${r.dados.id}`, { token: A })).dados.passos.length, det.passos.length);
+});

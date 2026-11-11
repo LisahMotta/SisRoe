@@ -2,7 +2,7 @@
 import { api } from '../api.js';
 import { esc, seloCategoria, seloStatus, dataBR } from '../ui.js';
 import { estado, ehGestao, ehAdmin } from '../app.js';
-import { CATEGORIAS, NIVEIS, RES68 } from '../catalogo.js';
+import { CATEGORIAS, NIVEIS, RES68, MACROS } from '../catalogo.js';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -52,6 +52,10 @@ export async function render(el) {
       <section class="cartao">
         <h2>Por mês</h2>
         ${barras(p.porMes, (i) => MESES[i.mes - 1], (i) => i.qtd)}
+      </section>
+      <section class="cartao">
+        <h2>Por macrocategoria do Protocolo 179</h2>
+        ${barras(p.porMacro || [], (i) => `${i.macro}) ${MACROS[i.macro]}`, (i) => i.qtd)}
       </section>
       <section class="cartao">
         <h2>Tipos mais frequentes</h2>

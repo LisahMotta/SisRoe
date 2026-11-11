@@ -6,15 +6,29 @@ ocorrência. Uma escola **nunca** vê os dados de outra.
 
 Baseado no SisRoe da EE Professora Malba Thereza Ferraz Campaner, agora sem dados fixos de uma escola.
 
-- **Protocolo 179 · CONVIVA SP**: ocorrências de urgência/emergência e graves, com o passo a passo de procedimentos
-  (PM 190, SAMU 192, Bombeiros 193, família, URE, Plataforma CONVIVA, Conselho Tutelar, imagens, sigilo).
+- **Protocolo 179 · CONVIVA SP — 3ª versão**: as 50 situações do documento, cada uma com seu passo a passo, macrocategoria
+  e regra de Boletim de Ocorrência.
 - **Ocorrências administrativas/disciplinares**: saiu da sala sem permissão, não abriu o caderno, recusou-se a
   tirar o boné, incidente ou acidente no intervalo, celular, atrasos e outras.
 
-> ⚠️ **Confira o catálogo com o documento oficial.** A lista de tipos do Protocolo 179 foi copiada do SisRoe original.
-> Não foi possível conferir item por item com o PDF da 3ª versão. A direção de cada escola pode corrigir códigos e nomes
-> em **Administração → Tipos de ocorrência**, sem mexer no código. Para mudar o padrão das escolas novas, edite
-> `public/js/catalogo.js`.
+### Protocolo 179 — 3ª versão
+
+O catálogo traz as **50 situações do capítulo 4 do DOC Conviva · Protocolo 179 — 3ª versão** (4.1 Acidentes e eventos
+inesperados … 4.50 Xenofobia). Cada situação vem com:
+- a **definição** do documento, para ajudar a escolher o tipo certo;
+- os **passos a), b), c)…** do documento, com os subitens ("como fazer"), como checklist da ocorrência;
+- a **macrocategoria** (a–j) do capítulo 4, a mesma lógica da Plataforma Conviva;
+- a **regra de Boletim de Ocorrência** da seção 1.4.4: a escola registra, cabe à vítima/família, não é necessário, ou avaliar.
+
+Também seguem o documento:
+- seção 1.2: tudo que envolve convivência vai para a Plataforma Conviva, **inclusive indisciplina** (4.28 c);
+- seção 1.2: para encerrar um caso com Conselho Tutelar acionado, é obrigatório registrar a **devolutiva** do serviço;
+- seção 1.4.4: campo "família orientada sobre a possibilidade de registrar B.O.";
+- ao encerrar com passos não marcados, o sistema avisa.
+
+O SisRoe agrupa as situações em 3 blocos só para agilizar o registro (Emergência, Protocolo 179, Indisciplina). Essa
+divisão é do sistema, não do documento. Cada ocorrência guarda uma cópia dos passos do momento do registro, então
+atualizar o catálogo não altera registros antigos. Para gerar o catálogo de uma nova versão, veja `ferramentas/LEIAME.md`.
 
 ## O que o sistema faz
 
@@ -118,7 +132,7 @@ npm test
 2. **Administração → Turmas e alunos**: crie as turmas e cole a lista de alunos de cada uma.
 3. **Administração → Usuários**: cadastre cada servidor. O sistema gera uma **senha provisória**, e no primeiro acesso
    a pessoa cria a própria senha. Se alguém esquecer a senha, use **"Nova senha"**.
-4. **Administração → Tipos de ocorrência**: confira a lista com a versão vigente do Protocolo 179.
+4. **Administração → Tipos de ocorrência**: as 50 situações do Protocolo 179 já vêm prontas; acrescente indisciplinas próprias da escola, se quiser.
 
 ## Estrutura
 
@@ -132,6 +146,8 @@ server/
   routes/escola.js    escola, usuários, turmas, alunos, tipos, auditoria
   routes/ocorrencias.js  registro, lista, detalhe, acompanhamento, notas, histórico, painel, CSV
   routes/medidas.js   afastamento preventivo temporário e relatório circunstanciado (Res. SEDUC 68/2026)
+  protocolo179.js     50 situações do Protocolo 179 — 3ª versão (gerado; ver ferramentas/)
+  tipos.js            cria e atualiza o catálogo de tipos de cada escola
 public/
   index.html          página única do site
   css/app.css         aparência (inclui o modo de impressão)

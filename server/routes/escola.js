@@ -7,7 +7,8 @@ import * as db from '../db.js';
 import { exigeAdmin, ehAdmin } from '../auth.js';
 import { ErroHttp, txt, obrigatorio, senhaForte, MSG_SENHA, rota } from '../util.js';
 import { normalizarCodigo } from './publico.js';
-import { PERFIS, CATEGORIAS, GRAVIDADES } from '../../public/js/catalogo.js';
+import { PERFIS, CATEGORIAS, GRAVIDADES, MACROS } from '../../public/js/catalogo.js';
+import { atualizarProtocolo, passosDoTipo } from '../tipos.js';
 
 const r = express.Router();
 
@@ -216,15 +217,30 @@ r.delete('/alunos/:id', exigeAdmin, rota(async (req, res) => {
 r.get('/tipos', rota(async (req, res) => {
   const soAtivos = !(ehAdmin(req.usuario) && req.query.todos === '1');
   res.json(await db.all(
-    `SELECT id, codigo, descricao, categoria, gravidade, ativo FROM tipos
+    // Lista leve (sem os passos). Os passos vêm em GET /tipos/:id.
+    `SELECT id, codigo, descricao, categoria, gravidade, ativo, macro, bo, definicao, origem FROM tipos
      WHERE escola_id = ? ${soAtivos ? 'AND ativo = 1' : ''} ORDER BY categoria, id`,
     [req.usuario.escola_id]
   ));
 }));
 
+r.get('/tipos/:id', rota(async (req, res) => {
+  const t = await db.one('SELECT * FROM tipos WHERE id = ? AND escola_id = ?', [Number(req.params.id), req.usuario.escola_id]);
+  if (!t) throw new ErroHttp(404, 'Tipo não encontrado.');
+  res.json({ ...t, passos: passosDoTipo(t), passos_proprios: t.origem === 'protocolo' });
+}));
+
+// Atualiza o catálogo da escola para a versão do Protocolo 179 que está no sistema.
+r.post('/tipos/atualizar-protocolo', exigeAdmin, rota(async (req, res) => {
+  const r2 = await db.transacao((tx) => atualizarProtocolo(tx, req.usuario.escola_id));
+  await db.auditar(req.usuario.escola_id, req.usuario, 'catalogo_atualizado', r2);
+  res.json(r2);
+}));
+
 function validarTipo(b) {
   if (!CATEGORIAS[b.categoria]) throw new ErroHttp(400, 'Categoria inválida.');
   if (!GRAVIDADES[b.gravidade]) throw new ErroHttp(400, 'Gravidade inválida.');
+  if (b.macro && !MACROS[b.macro]) throw new ErroHttp(400, 'Macrocategoria inválida.');
   return { codigo: obrigatorio(b.codigo, 'código', 12), descricao: obrigatorio(b.descricao, 'descrição', 160) };
 }
 
@@ -232,8 +248,8 @@ r.post('/tipos', exigeAdmin, rota(async (req, res) => {
   const b = req.body || {};
   const { codigo, descricao } = validarTipo(b);
   const id = await db.insert(
-    'INSERT INTO tipos (escola_id, codigo, descricao, categoria, gravidade, ativo) VALUES (?,?,?,?,?,1)',
-    [req.usuario.escola_id, codigo, descricao, b.categoria, b.gravidade]
+    "INSERT INTO tipos (escola_id, codigo, descricao, categoria, gravidade, ativo, macro, bo, origem) VALUES (?,?,?,?,?,1,?,?,'escola')",
+    [req.usuario.escola_id, codigo, descricao, b.categoria, b.gravidade, b.macro || null, 'avaliar']
   );
   await db.auditar(req.usuario.escola_id, req.usuario, 'tipo_criado', { id, codigo });
   res.status(201).json({ id });
@@ -245,8 +261,8 @@ r.put('/tipos/:id', exigeAdmin, rota(async (req, res) => {
   if (!t) throw new ErroHttp(404, 'Tipo não encontrado.');
   const b = { ...t, ...(req.body || {}) };
   const { codigo, descricao } = validarTipo(b);
-  await db.run('UPDATE tipos SET codigo = ?, descricao = ?, categoria = ?, gravidade = ?, ativo = ? WHERE id = ? AND escola_id = ?',
-    [codigo, descricao, b.categoria, b.gravidade, b.ativo ? 1 : 0, t.id, eid]);
+  await db.run('UPDATE tipos SET codigo = ?, descricao = ?, categoria = ?, gravidade = ?, macro = ?, ativo = ? WHERE id = ? AND escola_id = ?',
+    [codigo, descricao, b.categoria, b.gravidade, b.macro || null, b.ativo ? 1 : 0, t.id, eid]);
   await db.auditar(eid, req.usuario, 'tipo_editado', { id: t.id });
   res.json({ ok: true });
 }));

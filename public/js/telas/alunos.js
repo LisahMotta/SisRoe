@@ -2,7 +2,7 @@
 import { api } from '../api.js';
 import { $, esc, dataBR, dataHoraBR, seloCategoria, seloGravidade, seloStatus, avisarErro, imprimirAvulso, hojeISO } from '../ui.js';
 import { estado, ehGestao, ehAdmin } from '../app.js';
-import { CATEGORIAS, PAPEIS_ALUNO, PROCEDIMENTOS, NIVEIS, RES68 } from '../catalogo.js';
+import { CATEGORIAS, PAPEIS_ALUNO, NIVEIS, RES68 } from '../catalogo.js';
 
 export async function render(el, [id]) {
   if (!ehGestao()) {
@@ -76,7 +76,8 @@ async function historico(el, id) {
  */
 function relatorio({ aluno, ocorrencias, afastamentos }) {
   const e = estado.escola;
-  const passosDe = (o) => (PROCEDIMENTOS[o.categoria] || []).filter((p) => o.protocolo.includes(p.k)).map((p) => p.t);
+  const passosDe = (o) => (o.passos || []).filter((p) => o.protocolo.includes(p.k))
+    .map((p) => (/^[a-z]$/.test(p.k) ? `${p.k}) ${p.t}` : p.t));
   const linhas = (n) => '<div class="linhas-branco">' + '<span></span>'.repeat(n) + '</div>';
   const lista = (itens, vazio) => itens.length ? `<ul>${itens.join('')}</ul>` : `<p><i>${vazio}</i></p>`;
 
@@ -87,12 +88,12 @@ function relatorio({ aluno, ocorrencias, afastamentos }) {
   const medidas = ocorrencias.filter((o) => passosDe(o).length).map((o) => `<li>${esc(o.numero)}: ${passosDe(o).map(esc).join('; ')}</li>`)
     .concat(afastamentos.map((a) => `<li>Afastamento preventivo temporário: ${dataBR(a.data_inicio)}, ${a.dias_letivos} dia(s)
       ${a.prorrogado ? `+ ${a.prorrogacao_dias} (prorrogação)` : ''}. Hipóteses: ${a.hipoteses.join(', ')}. Plano de estudos: ${esc(a.plano_estudos)}</li>`));
-  const familia = ocorrencias.filter((o) => o.familia_comunicada).map((o) => `<li>${esc(o.numero)}: ${o.familia_data ? dataBR(o.familia_data) : 'data não informada'}
-    ${o.familia_meio ? `(${esc(o.familia_meio)})` : ''}${o.familia_obs ? ` — ${esc(o.familia_obs)}` : ''}</li>`)
+  const familia = ocorrencias.filter((o) => o.familia_comunicada || o.bo_orientado).map((o) => `<li>${esc(o.numero)}: ${o.familia_data ? dataBR(o.familia_data) : 'data não informada'}
+    ${o.familia_meio ? `(${esc(o.familia_meio)})` : ''}${o.familia_obs ? ` — ${esc(o.familia_obs)}` : ''}${o.bo_orientado ? ' — orientada sobre registro de B.O.' : ''}</li>`)
     .concat(afastamentos.filter((a) => a.familia_comunicada_em).map((a) => `<li>Comunicação formal do afastamento em ${dataBR(a.familia_comunicada_em)}</li>`));
   const notas = ocorrencias.flatMap((o) => o.notas.map((n) => `<li>${dataHoraBR(n.criado_em)} — ${esc(n.usuario_nome)} (${esc(o.numero)}): ${esc(n.texto)}</li>`));
   const rede = ocorrencias.filter((o) => o.conselho_tutelar || o.protocolo.includes('rede') || o.protocolo.includes('conselho'))
-    .map((o) => `<li>${esc(o.numero)}: ${o.conselho_tutelar ? 'Conselho Tutelar acionado' : 'articulação com a rede protetiva'}</li>`)
+    .map((o) => `<li>${esc(o.numero)}: ${o.conselho_tutelar ? 'Conselho Tutelar acionado' : 'articulação com a rede protetiva'}${o.rede_devolutiva ? ` — devolutiva: ${esc(o.rede_devolutiva)}` : ''}</li>`)
     .concat(afastamentos.filter((a) => a.rede_protetiva).map((a) => `<li>Afastamento: ${esc(a.rede_protetiva)}</li>`));
   const ultimaAnalise = [...ocorrencias].reverse().find((o) => o.analise_inicial);
 

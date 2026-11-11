@@ -16,7 +16,7 @@ import express from 'express';
 import * as db from '../db.js';
 import { exigeAdmin } from '../auth.js';
 import { ErroHttp, txt, obrigatorio, dataValida, rota } from '../util.js';
-import { HIPOTESES_AFASTAMENTO, AFASTAMENTO_MAX_DIAS } from '../../public/js/catalogo.js';
+import { HIPOTESES_AFASTAMENTO, AFASTAMENTO_MAX_DIAS, PROCEDIMENTOS } from '../../public/js/catalogo.js';
 
 const r = express.Router();
 
@@ -162,6 +162,7 @@ r.get('/alunos/:id/relatorio', exigeAdmin, rota(async (req, res) => {
       ...o,
       numero: `${o.ano}/${String(o.seq).padStart(4, '0')}`,
       protocolo: JSON.parse(o.protocolo || '[]'),
+      passos: (() => { const p = JSON.parse(o.passos || '[]'); return p.length ? p : PROCEDIMENTOS[o.categoria] || []; })(),
       notas: notas.filter((n) => n.ocorrencia_id === o.id),
     })),
     afastamentos: afastamentos.map((a) => ({ ...a, hipoteses: JSON.parse(a.hipoteses || '[]') })),

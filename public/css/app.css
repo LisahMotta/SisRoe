@@ -312,3 +312,21 @@ label.check input { width: auto; margin-top: 3px; flex: none; }
   body.modo-avulso #impressao-avulsa { display: block; }
   #impressao-avulsa h2 { font-size: 11pt; }
 }
+
+/* ─── Protocolo 179 — 3ª versão ─────────────────────────────────────────── */
+.grupo-tipos h3 { font-size: .85rem; text-transform: uppercase; letter-spacing: .03em; color: var(--texto-suave); margin: 16px 0 6px; }
+.tipo-txt { flex: 1; }
+.tipo-txt small { display: block; font-size: .8rem; margin-top: 2px; }
+.definicao { font-size: .9rem; color: var(--texto-suave); background: var(--fundo); border-radius: 8px; padding: 10px 12px; margin: -6px 0 16px; }
+.passo { margin-bottom: 6px; }
+.passo .check { margin-bottom: 2px; }
+.passo-det { margin: 0 0 6px 28px; font-size: .85rem; }
+.passo-det summary { cursor: pointer; color: var(--azul); }
+.passo-det ul { margin: 4px 0 0; padding-left: 18px; }
+.passo-det li { margin-bottom: 2px; }
+.regra-bo { border-radius: 8px; padding: 10px 12px; margin: 0 0 12px; font-size: .9rem; border: 1px solid var(--borda); background: #fff; }
+.bo-escola { border-color: #f4b8b3; background: var(--urgencia-claro); }
+.bo-interessado, .bo-avaliar { border-color: #ecd68f; background: var(--amarelo-claro); }
+.bo-nao { border-color: #b9e0cb; background: var(--ok-claro); }
+.selo-p179 { background: var(--azul-claro); color: var(--azul); font-size: .7rem; }
+.lista-tipos-admin .desc small { display: block; }

@@ -26,8 +26,11 @@ Multi-school (multi-tenant) incident log. Express backend + vanilla JS SPA (ES m
 - `server/auth.js`: JWT holds `{uid, eid}`. The user is reloaded on every request (deactivation takes effect right away).
   `trocar_senha` blocks everything except `/eu` and `/minha-senha`. Roles: `exigeGestao` (poc/coordenador/vice/diretor)
   and `exigeAdmin` (vice/diretor).
-- `public/js/catalogo.js`: shared by server and browser. Default types (seeded per school at signup), protocol steps
-  (`PROCEDIMENTOS`, keys stored in `ocorrencias.protocolo`; don't rename keys already in use), roles and labels.
+- `public/js/catalogo.js`: shared by server and browser: categories, MACROS (a–j), REGRAS_BO, default steps
+  (`PROCEDIMENTOS`, used when a type has no own steps; keys stored in `ocorrencias.protocolo`), roles, labels.
+- `server/protocolo179.js` is GENERATED from the Protocolo 179 PDF (see `ferramentas/LEIAME.md`): 50 situations with
+  lettered steps. `server/tipos.js` seeds them per school and updates them. Each occurrence stores a snapshot of its
+  steps in `ocorrencias.passos`; `GET /tipos` is light, `GET /tipos/:id` returns steps.
 - Frontend: `app.js` hash router loads `telas/<name>.js`, each exporting `render(el, params)`. The CSP forbids inline
   scripts and handlers: wire events with `addEventListener`. Always pass user content through `esc()`.
 - Res. SEDUC nº 68/2026 (indisciplina): administrative checklist = Art. 7º I–X; `ocorrencias.nivel` (Art. 5º, Nível III
