@@ -2,6 +2,9 @@
 // Este arquivo é usado pelo servidor (para criar os tipos de cada escola nova)
 // e pelo navegador (para mostrar os procedimentos do Protocolo 179).
 //
+// As intervenções administrativas, os níveis de resposta e as regras do
+// afastamento preventivo seguem a Resolução SEDUC nº 68, de 19/06/2026.
+//
 // IMPORTANTE: a lista do Protocolo 179 abaixo veio do SisRoe original.
 // Confira numeração e nomes com o PDF oficial da 3ª versão do Protocolo 179
 // (CONVIVA SP / SEDUC-SP). Cada escola pode editar seus tipos pela tela
@@ -87,16 +90,47 @@ export const PROCEDIMENTOS = {
     { k: 'bo', t: 'Orientar registro de Boletim de Ocorrência quando houver crime' },
     { k: 'acompanhar', t: 'Acompanhar o caso e registrar as providências' },
   ],
+  // Intervenções pedagógicas do Art. 7º da Resolução SEDUC nº 68/2026 (incisos I a X).
   administrativa: [
-    { k: 'escuta', t: 'Acolhimento e escuta do(a) estudante' },
-    { k: 'orientacao', t: 'Orientação individual e retomada dos combinados de convivência' },
-    { k: 'compromisso', t: 'Repactuação de compromisso / plano de acompanhamento' },
-    { k: 'familia', t: 'Comunicar a família (obrigatório em caso de reincidência)' },
-    { k: 'mediacao', t: 'Mediação de conflitos / práticas restaurativas' },
-    { k: 'reparacao', t: 'Ação de reparação (quando houver dano)' },
-    { k: 'gestao', t: 'Encaminhar à gestão / coordenação' },
+    { k: 'acolhimento', t: 'I — Acolhimento e escuta dos envolvidos' },
+    { k: 'orientacao', t: 'II — Orientação individual e retomada dos combinados de convivência' },
+    { k: 'compromisso', t: 'III — Repactuação de compromisso e plano individual de acompanhamento' },
+    { k: 'familia', t: 'IV — Articulação com a família ou responsáveis legais' },
+    { k: 'adulto_ref', t: 'V — Acompanhamento por adulto de referência da unidade escolar' },
+    { k: 'mediacao', t: 'VI — Mediação de conflitos e práticas restaurativas (adesão voluntária)' },
+    { k: 'reparacao', t: 'VII — Ações proporcionais de reparação e recomposição das relações' },
+    { k: 'rede', t: 'VIII — Articulação com a rede protetiva ou órgãos competentes' },
+    { k: 'estudo_dirigido', t: 'IX — Encaminhamento temporário a outro espaço (estudo dirigido), sob supervisão da gestão' },
+    { k: 'outras', t: 'X — Outras intervenções pedagógicas compatíveis com a proteção integral' },
   ],
 };
+
+// ─── Resolução SEDUC nº 68/2026 (indisciplina escolar) ───────────────────────
+export const RES68 = 'Res. SEDUC nº 68/2026';
+
+// Art. 5º — gradação das respostas institucionais.
+export const NIVEIS = {
+  1: { nome: 'Nível I', desc: 'Situação ordinária de indisciplina ou conflito cotidiano: intervenções pedagógicas e fluxos do Protocolo 179.' },
+  2: { nome: 'Nível II', desc: 'Situação recorrente ou complexa, sem risco imediato: intensificar acompanhamento, família, repactuação, plano individual, mediação, estudo dirigido quando necessário.' },
+  3: { nome: 'Nível III', desc: 'Risco, grave ruptura da convivência ou esgotamento das intervenções: avaliar afastamento preventivo temporário e, excepcionalmente, transferência cautelar.' },
+};
+
+// Art. 8º — atividades do estudo dirigido.
+export const ATIVIDADES_ESTUDO_DIRIGIDO = [
+  'Leitura orientada e reflexão sobre a situação ocorrida',
+  'Produção escrita reflexiva sobre a conduta, consequências e possibilidades de reparação',
+  'Atividades curriculares orientadas (inclusive Plataformas Educacionais)',
+  'Acompanhamento direto por profissional da equipe escolar designado',
+];
+
+// Art. 11, § 1º — hipóteses do afastamento preventivo temporário.
+export const HIPOTESES_AFASTAMENTO = {
+  I: 'I — A permanência imediata do estudante representa risco concreto, atual ou fundamentadamente previsível à integridade de outros membros da comunidade escolar',
+  II: 'II — O estudante está em risco no ambiente escolar (retaliações, ameaças, intimidações, agravamento de conflitos ou vulnerabilidade)',
+  III: 'III — Recorrência grave de indisciplina ou ruptura da convivência, com esgotamento ou insuficiência das estratégias anteriores',
+};
+// Art. 11, §§ 5º e 6º — prazo inicial máximo, prorrogável uma vez por igual período.
+export const AFASTAMENTO_MAX_DIAS = 5;
 
 // Tipos padrão. categoria: urgencia | grave | administrativa.
 // gravidade: gravidade inicial sugerida (a gestão pode aumentar depois).

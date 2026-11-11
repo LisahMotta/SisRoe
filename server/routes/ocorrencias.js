@@ -13,7 +13,7 @@ import express from 'express';
 import * as db from '../db.js';
 import { exigeGestao, exigeAdmin, ehGestao } from '../auth.js';
 import { ErroHttp, txt, obrigatorio, dataValida, horaValida, rota } from '../util.js';
-import { ORDEM_GRAVIDADE, PAPEIS_ALUNO, PROCEDIMENTOS, STATUS, CATEGORIAS, GRAVIDADES } from '../../public/js/catalogo.js';
+import { ORDEM_GRAVIDADE, PAPEIS_ALUNO, PROCEDIMENTOS, STATUS, CATEGORIAS, GRAVIDADES, NIVEIS } from '../../public/js/catalogo.js';
 
 const r = express.Router();
 
@@ -119,7 +119,21 @@ r.get('/ocorrencias/:id', rota(async (req, res) => {
   const notas = await db.all(
     'SELECT usuario_nome, texto, criado_em FROM ocorrencia_notas WHERE escola_id = ? AND ocorrencia_id = ? ORDER BY id',
     [eid, o.id]);
-  res.json({ ...formatar(o), alunos, notas });
+  const afastamentos = await db.all(
+    'SELECT * FROM afastamentos WHERE escola_id = ? AND ocorrencia_id = ? ORDER BY id', [eid, o.id]);
+  // Art. 5º §1º: o histórico pesa na classificação — conta ocorrências anteriores dos alunos.
+  const ids = alunos.map((a) => a.aluno_id).filter(Boolean);
+  const anteriores = ids.length ? await db.all(
+    `SELECT x.aluno_id, COUNT(*) AS qtd FROM ocorrencia_alunos x JOIN ocorrencias oc ON oc.id = x.ocorrencia_id
+     WHERE x.escola_id = ? AND x.aluno_id IN (${ids.map(() => '?').join(',')}) AND oc.id <> ? AND oc.status <> 'cancelada'
+     GROUP BY x.aluno_id`, [eid, ...ids, o.id]) : [];
+  const mapa = Object.fromEntries(anteriores.map((r) => [r.aluno_id, Number(r.qtd)]));
+  res.json({
+    ...formatar(o),
+    alunos: alunos.map((a) => ({ ...a, anteriores: a.aluno_id ? mapa[a.aluno_id] || 0 : null })),
+    notas,
+    afastamentos: afastamentos.map((a) => ({ ...a, hipoteses: JSON.parse(a.hipoteses || '[]') })),
+  });
 }));
 
 // ─── Registro ────────────────────────────────────────────────────────────────
@@ -133,6 +147,14 @@ r.post('/ocorrencias', rota(async (req, res) => {
   if (!dataValida(b.data || '')) throw new ErroHttp(400, 'Informe uma data válida.');
   if (b.data > new Date(Date.now() + 86400000).toISOString().slice(0, 10)) throw new ErroHttp(400, 'A data não pode estar no futuro.');
   if (!horaValida(b.hora || '')) throw new ErroHttp(400, 'Informe um horário válido.');
+  // Art. 9º §3º (Res. 68/2026): ciência tardia não afasta o registro; guarda a data em que a escola soube.
+  let dataConhecimento = null;
+  if (b.data_conhecimento && b.data_conhecimento !== b.data) {
+    if (!dataValida(b.data_conhecimento) || b.data_conhecimento < b.data) {
+      throw new ErroHttp(400, 'A data em que a escola tomou conhecimento deve ser igual ou posterior à data do fato.');
+    }
+    dataConhecimento = b.data_conhecimento;
+  }
   const local = obrigatorio(b.local, 'local', 80);
   const relato = obrigatorio(b.relato, 'relato', 8000);
   if (relato.length < 15) throw new ErroHttp(400, 'Descreva melhor o que aconteceu no relato (pelo menos 15 caracteres).');
@@ -172,11 +194,11 @@ r.post('/ocorrencias', rota(async (req, res) => {
     const { prox } = await tx.one('SELECT COALESCE(MAX(seq), 0) + 1 AS prox FROM ocorrencias WHERE escola_id = ? AND ano = ?', [eid, ano]);
     const id = await tx.insert(
       `INSERT INTO ocorrencias (escola_id, ano, seq, tipo_id, tipo_codigo, tipo_descricao, categoria, gravidade,
-         data, hora, local, turma_id, turma_nome, relato, providencias, protocolo, status,
+         data, hora, data_conhecimento, local, turma_id, turma_nome, relato, providencias, protocolo, status,
          registrado_por_id, registrado_por_nome, registrado_por_perfil, criado_em, atualizado_em)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'aberta',?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'aberta',?,?,?,?,?)`,
       [eid, ano, Number(prox), tipo.id, tipo.codigo, tipo.descricao, tipo.categoria, tipo.gravidade,
-       b.data, b.hora, local, turma?.id ?? null, turma?.nome ?? null, relato, txt(b.providencias, 4000),
+       b.data, b.hora, dataConhecimento, local, turma?.id ?? null, turma?.nome ?? null, relato, txt(b.providencias, 4000),
        JSON.stringify(protocolo), u.id, u.nome, u.perfil, agora, agora]
     );
     for (const a of alunos) {
@@ -218,6 +240,18 @@ r.put('/ocorrencias/:id/acompanhamento', exigeGestao, rota(async (req, res) => {
     if (!['aberta', 'em_acompanhamento', 'encerrada'].includes(b.status)) throw new ErroHttp(400, 'Status inválido.');
     status = b.status;
   }
+  // Art. 5º (Res. 68/2026): nível de resposta. Nível III exige análise registrada (§ 3º veda
+  // medidas baseadas em receios genéricos ou percepções não documentadas).
+  let nivel = o.nivel ?? null;
+  if (b.nivel !== undefined) {
+    nivel = b.nivel === '' || b.nivel === null ? null : Number(b.nivel);
+    if (nivel !== null && !NIVEIS[nivel]) throw new ErroHttp(400, 'Nível de resposta inválido.');
+  }
+  const analise = b.analise_inicial !== undefined ? txt(b.analise_inicial, 4000) : (o.analise_inicial || '');
+  const manifestacao = b.manifestacao_estudante !== undefined ? txt(b.manifestacao_estudante, 4000) : (o.manifestacao_estudante || '');
+  if (nivel === 3 && analise.length < 20) {
+    throw new ErroHttp(400, 'Para o Nível III, registre a síntese da análise inicial com os elementos objetivos da situação (Art. 5º, § 3º).');
+  }
   const encerrando = status === 'encerrada' && o.status !== 'encerrada';
   const protocolo = Array.isArray(b.protocolo)
     ? b.protocolo.filter((k) => PROCEDIMENTOS[o.categoria].some((p) => p.k === k))
@@ -228,17 +262,19 @@ r.put('/ocorrencias/:id/acompanhamento', exigeGestao, rota(async (req, res) => {
     `UPDATE ocorrencias SET gravidade = ?, status = ?, protocolo = ?, providencias = ?,
        familia_comunicada = ?, familia_data = ?, familia_meio = ?, familia_obs = ?,
        conselho_tutelar = ?, bo_numero = ?, conviva_registrado = ?,
+       nivel = ?, analise_inicial = ?, manifestacao_estudante = ?,
        encerrado_por_nome = ?, encerrado_em = ?, atualizado_em = ?
      WHERE id = ? AND escola_id = ?`,
     [gravidade, status, JSON.stringify(protocolo),
      b.providencias !== undefined ? txt(b.providencias, 4000) : o.providencias,
      b.familia_comunicada ? 1 : 0, familiaData, txt(b.familia_meio, 40), txt(b.familia_obs, 1000),
      b.conselho_tutelar ? 1 : 0, txt(b.bo_numero, 40), b.conviva_registrado ? 1 : 0,
+     nivel, analise || null, manifestacao || null,
      encerrando ? u.nome : (status === 'encerrada' ? o.encerrado_por_nome : null),
      encerrando ? db.agora() : (status === 'encerrada' ? o.encerrado_em : null),
      db.agora(), o.id, u.escola_id]
   );
-  await db.auditar(u.escola_id, u, 'ocorrencia_acompanhada', { id: o.id, status, gravidade });
+  await db.auditar(u.escola_id, u, 'ocorrencia_acompanhada', { id: o.id, status, gravidade, nivel });
   res.json({ ok: true });
 }));
 
@@ -286,7 +322,8 @@ r.get('/painel', rota(async (req, res) => {
   const p = [u.escola_id, ano];
   if (!ehGestao(u)) { w.push('registrado_por_id = ?'); p.push(u.id); }
   const linhas = await db.all(
-    `SELECT id, categoria, gravidade, status, tipo_codigo, tipo_descricao, turma_nome, data FROM ocorrencias WHERE ${w.join(' AND ')}`, p);
+    `SELECT id, categoria, gravidade, status, tipo_codigo, tipo_descricao, turma_nome, data, protocolo,
+       conselho_tutelar, nivel FROM ocorrencias WHERE ${w.join(' AND ')}`, p);
 
   const mesAtual = new Date().toISOString().slice(0, 7);
   const conta = (f) => linhas.filter(f).length;
@@ -299,8 +336,36 @@ r.get('/painel', rota(async (req, res) => {
     mes: i + 1, qtd: conta((l) => Number(l.data.slice(5, 7)) === i + 1),
   }));
 
+  // Indicadores do Art. 9º, § 4º da Res. SEDUC nº 68/2026.
+  const intervencoes = {};
+  let articulacoesRede = 0;
+  for (const l of linhas) {
+    let prot = [];
+    try { prot = JSON.parse(l.protocolo || '[]'); } catch { /* ignora */ }
+    if (l.categoria === 'administrativa') for (const k of prot) intervencoes[k] = (intervencoes[k] || 0) + 1;
+    if (l.conselho_tutelar || prot.includes('rede') || prot.includes('conselho')) articulacoesRede++;
+  }
+  const passosAdm = PROCEDIMENTOS.administrativa;
+  let reincidentes = 0;
+  if (linhas.length) {
+    const r = await db.one(
+      `SELECT COUNT(*) AS qtd FROM (SELECT x.aluno_id FROM ocorrencia_alunos x JOIN ocorrencias o ON o.id = x.ocorrencia_id
+         WHERE x.escola_id = ? AND x.aluno_id IS NOT NULL AND o.ano = ? AND o.status <> 'cancelada'
+         ${ehGestao(u) ? '' : 'AND o.registrado_por_id = ?'}
+         GROUP BY x.aluno_id HAVING COUNT(*) >= 2) t`,
+      ehGestao(u) ? [u.escola_id, ano] : [u.escola_id, ano, u.id]);
+    reincidentes = Number(r.qtd);
+  }
+
   res.json({
     ano,
+    indicadores: {
+      reincidentes,
+      resolvidas: conta((l) => l.status === 'encerrada'),
+      articulacoesRede,
+      porNivel: [1, 2, 3].map((n) => ({ nivel: n, qtd: conta((l) => Number(l.nivel) === n) })),
+      intervencoes: passosAdm.map((p) => ({ nome: p.t, qtd: intervencoes[p.k] || 0 })).filter((i) => i.qtd),
+    },
     total: linhas.length,
     mes: conta((l) => l.data.startsWith(mesAtual)),
     abertas: conta((l) => l.status === 'aberta'),

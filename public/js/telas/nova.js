@@ -3,7 +3,7 @@
 import { api } from '../api.js';
 import { $, $$, esc, avisar, avisarErro, comCarregando, hojeISO, agoraHora, seloGravidade } from '../ui.js';
 import { estado, navegar } from '../app.js';
-import { CATEGORIAS, PROCEDIMENTOS, LOCAIS, PAPEIS_ALUNO } from '../catalogo.js';
+import { CATEGORIAS, PROCEDIMENTOS, LOCAIS, PAPEIS_ALUNO, RES68, ATIVIDADES_ESTUDO_DIRIGIDO } from '../catalogo.js';
 
 // Estado desta tela (zera a cada abertura).
 let passo, categoria, tipo, selecionados;
@@ -78,14 +78,20 @@ function caixaProtocolo() {
   const passos = PROCEDIMENTOS[categoria];
   const urg = categoria === 'urgencia';
   const titulo = categoria === 'administrativa'
-    ? 'Intervenções já realizadas (marque o que foi feito)'
+    ? `Intervenções pedagógicas já realizadas — Art. 7º, ${RES68}`
     : 'Protocolo 179 — procedimentos (marque o que já foi feito)';
   return `<fieldset class="protocolo prot-${categoria}">
       <legend>${titulo}</legend>
       ${urg ? `<div class="telefones">
           <a href="tel:190">🚓 PM <b>190</b></a><a href="tel:192">🚑 SAMU <b>192</b></a><a href="tel:193">🚒 Bombeiros <b>193</b></a></div>` : ''}
       ${passos.map((p) => `<label class="check"><input type="checkbox" name="prot" value="${p.k}"> ${esc(p.t)}</label>`).join('')}
-      ${categoria !== 'administrativa' ? '<small>A equipe gestora completa os demais passos na tela de acompanhamento.</small>' : ''}
+      ${categoria === 'administrativa' ? `<div id="aviso-estudo" class="aviso-norma" hidden>
+          <b>Estudo dirigido (Art. 7º, IX e Art. 8º):</b> sempre sob supervisão de integrante da equipe gestora, com atividades
+          pedagógicas e sem prejuízo da aprendizagem. É vedado usá-lo como castigo ou segregação (§ 6º). Se for reiterado,
+          comunique a família e inclua no plano individual de acompanhamento (§ 5º).
+          <br>Atividades possíveis: ${ATIVIDADES_ESTUDO_DIRIGIDO.map(esc).join(' · ')}.</div>
+        <small>As intervenções não são respostas automáticas: escolha a partir da análise da situação (Art. 7º, § 1º).</small>`
+        : '<small>A equipe gestora completa os demais passos na tela de acompanhamento.</small>'}
     </fieldset>`;
 }
 
@@ -108,6 +114,13 @@ function etapaForm(etapa, el) {
         </label>
       </div>
       <label id="local-outro" hidden>Qual local? <input name="localOutro" maxlength="80"></label>
+      <details class="mais-alunos">
+        <summary>A escola soube do fato depois (ciência tardia)?</summary>
+        <label>Data em que a escola tomou conhecimento
+          <input type="date" name="data_conhecimento" max="${hojeISO()}">
+          <small>A ciência tardia não dispensa o registro, que deve ser feito assim que o fato é conhecido (Art. 9º, § 3º, ${RES68}).</small>
+        </label>
+      </details>
 
       <fieldset>
         <legend>Estudante(s) envolvido(s) ${categoria === 'administrativa' ? '*' : ''}</legend>
@@ -158,6 +171,9 @@ function etapaForm(etapa, el) {
   const form = $('#form-occ', etapa);
   $('#voltar2', etapa).addEventListener('click', () => { passo = 2; desenhar(el); });
   form.local.addEventListener('change', () => { $('#local-outro', etapa).hidden = form.local.value !== 'Outro'; });
+  form.addEventListener('change', (ev) => {
+    if (ev.target.name === 'prot' && ev.target.value === 'estudo_dirigido') $('#aviso-estudo', etapa).hidden = !ev.target.checked;
+  });
 
   // Alunos da turma escolhida
   $('#sel-turma', etapa).addEventListener('change', async (ev) => {
@@ -241,6 +257,7 @@ function etapaForm(etapa, el) {
       tipo_id: tipo.id,
       data: form.data.value,
       hora: form.hora.value,
+      data_conhecimento: form.data_conhecimento.value || null,
       local,
       turma_id: form.turma_id.value || null,
       relato: form.relato.value,
@@ -249,6 +266,9 @@ function etapaForm(etapa, el) {
       alunos: [...selecionados.values()].map((a) => ({ id: a.id, nome: a.nome, turma_nome: a.turma_nome, papel: a.papel })),
     };
     if (!local) return avisar('Informe o local.', 'erro');
+    if (corpo.data_conhecimento && corpo.data_conhecimento < corpo.data) {
+      return avisar('A data em que a escola soube não pode ser anterior à data do fato.', 'erro');
+    }
     if (categoria === 'administrativa' && !corpo.alunos.length) return avisar('Selecione pelo menos um aluno.', 'erro');
     if (corpo.relato.trim().length < 15) return avisar('Escreva o relato dos fatos (pelo menos 15 caracteres).', 'erro');
     await comCarregando(form.querySelector('[type=submit]'), async () => {

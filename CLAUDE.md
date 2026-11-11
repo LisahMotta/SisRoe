@@ -30,5 +30,9 @@ Multi-school (multi-tenant) incident log. Express backend + vanilla JS SPA (ES m
   (`PROCEDIMENTOS`, keys stored in `ocorrencias.protocolo`; don't rename keys already in use), roles and labels.
 - Frontend: `app.js` hash router loads `telas/<name>.js`, each exporting `render(el, params)`. The CSP forbids inline
   scripts and handlers: wire events with `addEventListener`. Always pass user content through `esc()`.
+- Res. SEDUC nº 68/2026 (indisciplina): administrative checklist = Art. 7º I–X; `ocorrencias.nivel` (Art. 5º, Nível III
+  requires `analise_inicial`); `data_conhecimento`, `manifestacao_estudante`. `routes/medidas.js` holds the afastamento
+  preventivo rules (admin only, Nível III, ≤5 dias letivos, one extension ≤ initial with Conselho date + family notice)
+  and the Art. 15 report data. New columns go in `MIGRACOES` in `db.js` (ALTER TABLE, errors ignored).
 - Integrity rules: the original relato is never edited (use notas), gravidade only goes up, ocorrências are cancelled
   (with a reason), never deleted.

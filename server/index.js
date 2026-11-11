@@ -8,6 +8,7 @@ import { autenticar } from './auth.js';
 import publico from './routes/publico.js';
 import escola from './routes/escola.js';
 import ocorrencias from './routes/ocorrencias.js';
+import medidas from './routes/medidas.js';
 
 const raiz = path.dirname(fileURLToPath(import.meta.url));
 const pastaPublica = path.join(raiz, '..', 'public');
@@ -25,7 +26,7 @@ export async function criarApp() {
 
   // Rotas da API. As públicas vêm antes do "autenticar".
   app.use('/api', publico);
-  app.use('/api', autenticar, escola, ocorrencias);
+  app.use('/api', autenticar, escola, ocorrencias, medidas);
   app.use('/api', (req, res) => res.status(404).json({ erro: 'Rota não encontrada.' }));
 
   // Arquivos do site (HTML, CSS, JS).

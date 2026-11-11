@@ -289,3 +289,26 @@ label.check input { width: auto; margin-top: 3px; flex: none; }
   .assinaturas { grid-template-columns: repeat(3, 1fr); break-inside: avoid; }
   .documento h2 { break-after: avoid; }
 }
+
+/* ─── Res. SEDUC nº 68/2026 ─────────────────────────────────────────────── */
+.aviso-norma { background: var(--amarelo-claro); border: 1px solid #ecd68f; color: #5c4300; border-radius: 8px; padding: 10px 12px; margin: 8px 0 12px; font-size: .9rem; }
+.niveis { display: grid; gap: 4px; margin-bottom: 4px; }
+.nivel-opcao { border: 1px solid var(--borda); border-radius: 8px; padding: 8px 10px; background: #fff; }
+.nivel-opcao:has(input:checked) { border-color: var(--azul); background: var(--azul-claro); }
+.nivel-1 { background: var(--adm-claro); color: var(--adm); }
+.nivel-2 { background: var(--amarelo-claro); color: var(--amarelo); }
+.nivel-3 { background: var(--urgencia-claro); color: var(--urgencia); }
+.numeros-peq .numero span { font-size: 1.5rem; }
+.afastamento { border: 1px solid var(--borda); border-radius: var(--raio); padding: 12px 16px; margin-bottom: 12px; }
+.afastamento.vigente { border-left: 6px solid var(--urgencia); }
+.afastamento h3 { margin: 0; }
+.afastamento p { margin: 6px 0; }
+.assinaturas-2 { grid-template-columns: repeat(2, 1fr); }
+.linhas-branco span { display: block; border-bottom: 1px solid #999; height: 1.8em; }
+.marca-rascunho { text-align: center; font-weight: 800; color: var(--urgencia); letter-spacing: .1em; }
+#impressao-avulsa { display: none; }
+@media print {
+  body.modo-avulso > *:not(#impressao-avulsa) { display: none !important; }
+  body.modo-avulso #impressao-avulsa { display: block; }
+  #impressao-avulsa h2 { font-size: 11pt; }
+}

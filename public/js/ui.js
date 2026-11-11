@@ -81,6 +81,27 @@ export function lerForm(form) {
   return o;
 }
 
+/**
+ * Imprime um documento avulso (ex.: comunicação à família, relatório) sem a tela atrás.
+ * O HTML entra num contêiner próprio; o CSS de impressão esconde o resto da página.
+ */
+export function imprimirAvulso(html) {
+  $('#impressao-avulsa')?.remove();
+  const box = document.createElement('div');
+  box.id = 'impressao-avulsa';
+  box.className = 'documento';
+  box.innerHTML = html;
+  document.body.append(box);
+  document.body.classList.add('modo-avulso');
+  const limpar = () => {
+    document.body.classList.remove('modo-avulso');
+    box.remove();
+    window.removeEventListener('afterprint', limpar);
+  };
+  window.addEventListener('afterprint', limpar);
+  window.print();
+}
+
 /** Desativa o botão enquanto a ação roda (evita clique duplo = registro duplicado). */
 export async function comCarregando(botao, fn) {
   const texto = botao?.textContent;

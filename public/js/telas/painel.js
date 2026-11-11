@@ -2,7 +2,7 @@
 import { api } from '../api.js';
 import { esc, seloCategoria, seloStatus, dataBR } from '../ui.js';
 import { estado, ehGestao, ehAdmin } from '../app.js';
-import { CATEGORIAS } from '../catalogo.js';
+import { CATEGORIAS, NIVEIS, RES68 } from '../catalogo.js';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -62,6 +62,18 @@ export async function render(el) {
         ${barras(p.porTurma, (i) => i.nome, (i) => i.qtd)}
       </section>
     </div>
+
+    ${gestao ? `<section class="cartao">
+      <h2>Indicadores de convivência <small>Art. 9º, § 4º, ${RES68}</small></h2>
+      <div class="numeros numeros-peq">
+        <div class="numero"><span>${p.indicadores.reincidentes}</span>estudantes reincidentes (2+ ocorrências)</div>
+        <div class="numero"><span>${p.indicadores.resolvidas}</span>situações resolvidas (encerradas)${p.total ? ` · ${Math.round((p.indicadores.resolvidas / p.total) * 100)}%` : ''}</div>
+        <div class="numero"><span>${p.indicadores.articulacoesRede}</span>articulações com a rede protetiva</div>
+        ${p.indicadores.porNivel.map((n) => `<div class="numero"><span>${n.qtd}</span>${esc(NIVEIS[n.nivel].nome)}</div>`).join('')}
+      </div>
+      <h3>Intervenções pedagógicas adotadas (Art. 7º)</h3>
+      ${barras(p.indicadores.intervencoes, (i) => i.nome, (i) => i.qtd)}
+    </section>` : ''}
 
     <section class="cartao">
       <h2>${gestao ? 'Abertas, aguardando providências' : 'Registradas recentemente'}</h2>

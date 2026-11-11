@@ -122,6 +122,35 @@ function schema() {
       texto TEXT NOT NULL,
       criado_em TEXT NOT NULL
     )`,
+    // Afastamento preventivo temporário — Cap. IV da Res. SEDUC nº 68/2026.
+    `CREATE TABLE IF NOT EXISTS afastamentos (
+      ${ID},
+      escola_id INTEGER NOT NULL,
+      ocorrencia_id INTEGER NOT NULL REFERENCES ocorrencias(id),
+      aluno_id INTEGER,
+      aluno_nome TEXT NOT NULL,
+      hipoteses TEXT NOT NULL,
+      motivacao TEXT NOT NULL,
+      data_inicio TEXT NOT NULL,
+      dias_letivos INTEGER NOT NULL,
+      plano_estudos TEXT NOT NULL,
+      educacao_especial INTEGER NOT NULL DEFAULT 0,
+      adaptacoes TEXT,
+      familia_comunicada_em TEXT,
+      ure_comunicada_em TEXT,
+      rede_protetiva TEXT,
+      conviva_registrado INTEGER NOT NULL DEFAULT 0,
+      manifestacao TEXT,
+      prorrogado INTEGER NOT NULL DEFAULT 0,
+      prorrogacao_dias INTEGER,
+      prorrogacao_conselho_data TEXT,
+      prorrogacao_fundamento TEXT,
+      status TEXT NOT NULL DEFAULT 'vigente',
+      encerramento_obs TEXT,
+      criado_por_nome TEXT NOT NULL,
+      criado_em TEXT NOT NULL,
+      atualizado_em TEXT NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS auditoria (
       ${ID},
       escola_id INTEGER,
@@ -136,6 +165,16 @@ function schema() {
     'CREATE INDEX IF NOT EXISTS ix_alunos_turma ON alunos (escola_id, turma_id)',
   ];
 }
+
+// Res. SEDUC nº 68/2026: nível de resposta (Art. 5º), data de conhecimento
+// (Art. 9º §3º), síntese da análise inicial (Art. 9º §1º) e manifestação do
+// estudante (Art. 3º V).
+const MIGRACOES = [
+  'ALTER TABLE ocorrencias ADD COLUMN nivel INTEGER',
+  'ALTER TABLE ocorrencias ADD COLUMN data_conhecimento TEXT',
+  'ALTER TABLE ocorrencias ADD COLUMN analise_inicial TEXT',
+  'ALTER TABLE ocorrencias ADD COLUMN manifestacao_estudante TEXT',
+];
 
 // Converte "?" em "$1, $2…" para o PostgreSQL.
 function toPg(sql) {
@@ -158,6 +197,11 @@ export async function init() {
     lite.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   }
   for (const stmt of schema()) await run(stmt);
+  // Colunas acrescentadas depois da primeira versão. Bancos novos e antigos
+  // passam por aqui; se a coluna já existe, o erro é ignorado.
+  for (const m of MIGRACOES) {
+    try { await run(m); } catch { /* coluna já existe */ }
+  }
   console.log(`[db] usando ${USE_PG ? 'PostgreSQL' : 'SQLite'}`);
 }
 

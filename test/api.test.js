@@ -125,15 +125,15 @@ test('isolamento entre escolas', async () => {
 test('acompanhamento: gravidade só sobe, encerramento e histórico', async () => {
   const id = (await api('/ocorrencias', { token: A })).dados[0].id;
   const sobe = await api(`/ocorrencias/${id}/acompanhamento`, { token: A, metodo: 'PUT',
-    corpo: { gravidade: 'media', protocolo: ['escuta', 'familia', 'inexistente'], familia_comunicada: true, familia_data: '2026-03-10', familia_meio: 'Telefone' } });
+    corpo: { gravidade: 'media', protocolo: ['acolhimento', 'familia', 'inexistente'], familia_comunicada: true, familia_data: '2026-03-10', familia_meio: 'Telefone' } });
   assert.equal(sobe.status, 200);
   const desce = await api(`/ocorrencias/${id}/acompanhamento`, { token: A, metodo: 'PUT', corpo: { gravidade: 'leve' } });
   assert.equal(desce.status, 400);
-  await api(`/ocorrencias/${id}/acompanhamento`, { token: A, metodo: 'PUT', corpo: { status: 'encerrada', protocolo: ['escuta', 'familia'], familia_comunicada: true } });
+  await api(`/ocorrencias/${id}/acompanhamento`, { token: A, metodo: 'PUT', corpo: { status: 'encerrada', protocolo: ['acolhimento', 'familia'], familia_comunicada: true } });
   const o = (await api(`/ocorrencias/${id}`, { token: A })).dados;
   assert.equal(o.status, 'encerrada');
   assert.equal(o.gravidade, 'media');
-  assert.deepEqual(o.protocolo, ['escuta', 'familia']);
+  assert.deepEqual(o.protocolo, ['acolhimento', 'familia']);
   assert.equal(o.encerrado_por_nome, 'Diretora Teste');
   assert.equal(o.notas.length, 1);
 
@@ -171,4 +171,74 @@ test('só a direção administra e cancela; usuário desativado perde acesso', a
   assert.equal((await api('/tipos', { token: profA2 })).status, 401);
   const eu = usuarios.find((u) => u.login === 'diretora');
   assert.equal((await api(`/usuarios/${eu.id}`, { token: A, metodo: 'PUT', corpo: { ativo: false } })).status, 400);
+});
+
+test('Res. SEDUC 68/2026: nível, data de conhecimento e afastamento preventivo', async () => {
+  const tipo = tiposA.find((t) => /sem permissão/.test(t.descricao));
+  const nova = await api('/ocorrencias', { token: A, metodo: 'POST', corpo: {
+    tipo_id: tipo.id, data: '2026-04-01', data_conhecimento: '2026-04-03', hora: '10:00', local: 'Corredor', turma_id: turmaA,
+    relato: 'Aluno saiu da sala sem permissão pela quarta vez na semana.', alunos: [{ id: alunosA[1].id, papel: 'autor' }] } });
+  assert.equal(nova.status, 201, JSON.stringify(nova.dados));
+  const id = nova.dados.id;
+  // Data de conhecimento anterior ao fato é recusada (Art. 9º §3º).
+  const ruim = await api('/ocorrencias', { token: A, metodo: 'POST', corpo: {
+    tipo_id: tipo.id, data: '2026-04-05', data_conhecimento: '2026-04-01', hora: '10:00', local: 'Corredor',
+    relato: 'Relato de teste com tamanho suficiente.', alunos: [{ nome: 'X' }] } });
+  assert.equal(ruim.status, 400);
+
+  const corpoAfast = { aluno_id: alunosA[1].id, hipoteses: ['III'], data_inicio: '2026-04-06', dias_letivos: 3,
+    motivacao: 'Recorrência grave registrada nas ocorrências 2026/0001 a 2026/0003, sem efeito das intervenções.',
+    plano_estudos: 'Atividades da Plataforma, entregues diariamente à coordenação.', declara_nao_discriminatorio: true };
+  // Sem Nível III não há afastamento (Art. 5º, III).
+  assert.equal((await api(`/ocorrencias/${id}/afastamentos`, { token: A, metodo: 'POST', corpo: corpoAfast })).status, 400);
+  // Nível III exige análise inicial registrada (Art. 5º §3º).
+  assert.equal((await api(`/ocorrencias/${id}/acompanhamento`, { token: A, metodo: 'PUT', corpo: { nivel: 3 } })).status, 400);
+  assert.equal((await api(`/ocorrencias/${id}/acompanhamento`, { token: A, metodo: 'PUT',
+    corpo: { nivel: 3, analise_inicial: 'Quarta saída na semana; colegas relatam ameaças no corredor.' } })).status, 200);
+
+  // Professor não decide afastamento (Art. 11: Direção).
+  assert.equal((await api(`/ocorrencias/${id}/afastamentos`, { token: profA, metodo: 'POST', corpo: corpoAfast })).status, 403);
+  // Escola B não alcança a ocorrência da escola A.
+  assert.equal((await api(`/ocorrencias/${id}/afastamentos`, { token: B, metodo: 'POST', corpo: corpoAfast })).status, 404);
+  // Prazo inicial acima de 5 dias letivos é recusado (Art. 11 §5º).
+  assert.equal((await api(`/ocorrencias/${id}/afastamentos`, { token: A, metodo: 'POST', corpo: { ...corpoAfast, dias_letivos: 6 } })).status, 400);
+  // Sem a declaração do Art. 28, VI, é recusado.
+  assert.equal((await api(`/ocorrencias/${id}/afastamentos`, { token: A, metodo: 'POST', corpo: { ...corpoAfast, declara_nao_discriminatorio: false } })).status, 400);
+  // Educação Especial sem adaptações documentadas é recusado (Art. 31).
+  assert.equal((await api(`/ocorrencias/${id}/afastamentos`, { token: A, metodo: 'POST', corpo: { ...corpoAfast, educacao_especial: true } })).status, 400);
+  // Estudante que não está na ocorrência é recusado.
+  assert.equal((await api(`/ocorrencias/${id}/afastamentos`, { token: A, metodo: 'POST', corpo: { ...corpoAfast, aluno_id: alunosA[2].id } })).status, 400);
+
+  const ok = await api(`/ocorrencias/${id}/afastamentos`, { token: A, metodo: 'POST', corpo: corpoAfast });
+  assert.equal(ok.status, 201, JSON.stringify(ok.dados));
+  const af = ok.dados.id;
+  assert.equal((await api(`/afastamentos/${af}`, { token: B, metodo: 'PUT', corpo: { acao: 'encerrar', encerramento_obs: 'x' } })).status, 404);
+
+  // Prorrogação: exige família comunicada, Conselho de Escola e fundamento; só uma vez e por igual período.
+  const prorr = { acao: 'prorrogar', prorrogacao_dias: 3, prorrogacao_conselho_data: '2026-04-09',
+    prorrogacao_fundamento: 'Risco persiste: novas ameaças relatadas por três estudantes em 08/04.' };
+  assert.equal((await api(`/afastamentos/${af}`, { token: A, metodo: 'PUT', corpo: prorr })).status, 400, 'sem família');
+  assert.equal((await api(`/afastamentos/${af}`, { token: A, metodo: 'PUT', corpo: { familia_comunicada_em: '2026-04-06', ure_comunicada_em: '2026-04-06' } })).status, 200);
+  assert.equal((await api(`/afastamentos/${af}`, { token: A, metodo: 'PUT', corpo: { ...prorr, prorrogacao_dias: 4 } })).status, 400, 'maior que o inicial');
+  assert.equal((await api(`/afastamentos/${af}`, { token: A, metodo: 'PUT', corpo: prorr })).status, 200);
+  assert.equal((await api(`/afastamentos/${af}`, { token: A, metodo: 'PUT', corpo: prorr })).status, 400, 'segunda prorrogação');
+  assert.equal((await api(`/afastamentos/${af}`, { token: A, metodo: 'PUT', corpo: { acao: 'encerrar', encerramento_obs: 'Retorno com plano de acompanhamento.' } })).status, 200);
+
+  const o = (await api(`/ocorrencias/${id}`, { token: A })).dados;
+  assert.equal(o.nivel, 3);
+  assert.equal(o.data_conhecimento, '2026-04-03');
+  assert.equal(o.afastamentos.length, 1);
+  assert.equal(o.afastamentos[0].status, 'encerrado');
+  assert.equal(o.afastamentos[0].prorrogado, 1);
+
+  // Relatório circunstanciado: só a direção, e isolado por escola.
+  assert.equal((await api(`/alunos/${alunosA[1].id}/relatorio`, { token: profA })).status, 403);
+  assert.equal((await api(`/alunos/${alunosA[1].id}/relatorio`, { token: B })).status, 404);
+  const rel = (await api(`/alunos/${alunosA[1].id}/relatorio`, { token: A })).dados;
+  assert.equal(rel.ocorrencias.length, 1);
+  assert.equal(rel.afastamentos.length, 1);
+
+  const p = (await api('/painel?ano=2026', { token: A })).dados;
+  assert.ok(p.indicadores);
+  assert.equal(p.indicadores.porNivel.find((n) => n.nivel === 3).qtd, 1);
 });
