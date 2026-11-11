@@ -106,16 +106,56 @@ Para rodar os testes automáticos:
 npm test
 ```
 
-## Como publicar no Railway
+Para testar também no PostgreSQL, como em produção, use um banco vazio:
 
-1. No Railway: **New Project → Deploy from GitHub** e escolha este repositório.
-2. Adicione um banco **PostgreSQL** ao projeto. O Railway cria a variável `DATABASE_URL` sozinho, e o sistema passa a usá-la.
-   (Sem PostgreSQL os dados se perdem a cada nova publicação, porque o disco do Railway é apagado.)
-3. Em **Variables**, adicione:
-   - `JWT_SECRET`: uma frase longa e aleatória (obrigatória quando `NODE_ENV=production`).
-   - `CADASTRO_CHAVE` *(recomendado)*: uma senha que você passa só para as escolas autorizadas. Sem ela, qualquer
-     pessoa com o endereço do site consegue cadastrar uma escola.
-4. Pronto. Não precisa rodar `seed`: cada escola se cadastra pela própria tela.
+```bash
+TEST_DATABASE_URL=postgres://usuario@localhost:5432/sisroe_teste npm test
+```
+
+## Como publicar de graça (Render + Neon)
+
+O sistema fica em dois serviços gratuitos, que não pedem cartão de crédito:
+
+| Peça | Serviço gratuito | O que o plano grátis oferece |
+|---|---|---|
+| Site (o programa Node.js) | [Render](https://render.com) | 750 horas por mês. **Dorme após 15 min sem acesso** e leva até ~1 min para acordar |
+| Banco de dados (PostgreSQL) | [Neon](https://neon.com) | 0,5 a 1 GB de dados e 100 horas de processamento por mês. Dorme após 5 min parado e acorda sozinho |
+
+> Os limites dos planos gratuitos mudam com o tempo. Confira nas páginas de preço antes de publicar.
+> Não use o banco gratuito do próprio Render: ele **expira em 30 dias**.
+
+### Passo 1 — Criar o banco no Neon
+
+1. Crie uma conta em neon.com (dá para entrar com a conta do GitHub).
+2. Crie um projeto chamado `sisroe`, região **AWS US East 1 (N. Virginia)**, a mesma região do site no Render.
+3. No painel do projeto, clique em **Connect** e copie a *connection string*. Ela começa com `postgresql://` e
+   termina com `?sslmode=require`. Guarde essa string: ela é a senha do banco, não compartilhe.
+
+As tabelas são criadas sozinhas na primeira vez que o sistema liga.
+
+### Passo 2 — Publicar o site no Render
+
+1. Crie uma conta em render.com (entre com a conta do GitHub).
+2. Clique em **New → Blueprint** e escolha o repositório `SisRoe`. O Render lê o arquivo `render.yaml`.
+3. O Render vai pedir dois valores:
+   - `DATABASE_URL`: cole a connection string do Neon;
+   - `CADASTRO_CHAVE`: invente uma senha. Você passa essa senha só para as escolas que podem se cadastrar.
+     Sem ela, qualquer pessoa com o endereço do site conseguiria cadastrar uma escola.
+
+   O `JWT_SECRET` é criado automaticamente.
+4. Clique em **Apply**. Em alguns minutos o site fica no ar num endereço como `https://sisroe.onrender.com`.
+
+Cada novo commit na branch `main` publica a nova versão sozinho.
+
+### O que esperar do plano gratuito
+
+- **Primeiro acesso do dia demora.** Depois de 15 minutos sem uso, o site dorme. Quem abrir primeiro espera até
+  ~1 minuto, e depois tudo fica rápido. Avise as escolas: "se demorar, espere carregar; não clique de novo".
+- **O banco também dorme**, e o sistema está preparado para isso: se a conexão cair, ele reconecta sozinho.
+- **Espaço.** Cada ocorrência ocupa poucos KB, então o espaço gratuito comporta dezenas de milhares de registros.
+  O painel do Neon mostra quanto já foi usado.
+- **Faça cópia de segurança.** Serviço gratuito não tem garantia. Uma vez por mês, exporte a planilha
+  (Ocorrências → Exportar planilha) ou, se souber usar o terminal, faça um `pg_dump` com a connection string.
 
 | Variável | Para que serve | Padrão |
 |---|---|---|
@@ -125,6 +165,7 @@ npm test
 | `CADASTRO_CHAVE` | Exige uma chave para cadastrar escola nova | — (cadastro livre) |
 | `SQLITE_FILE` | Caminho do arquivo SQLite | `data/sisroe.db` |
 | `PGSSL` | `false` para PostgreSQL local sem SSL | SSL ligado |
+| `PG_MAX_CONEXOES` | Máximo de conexões abertas com o banco | 5 |
 
 ## Primeiro uso numa escola
 

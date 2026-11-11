@@ -1,0 +1,22 @@
+# render.yaml — configuração para o plano GRATUITO do Render (render.com).
+# No Render: New → Blueprint → escolha este repositório. Ele lê este arquivo.
+# O banco de dados fica FORA do Render (ex.: Neon, gratuito): cole a URL em DATABASE_URL.
+services:
+  - type: web
+    name: sisroe
+    runtime: node
+    plan: free
+    region: virginia          # mesma região do banco (Neon: AWS US East 1) = respostas mais rápidas
+    branch: main
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /        # página estática: não acorda o banco à toa
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true   # o Render cria uma chave aleatória
+      - key: DATABASE_URL
+        sync: false           # o Render vai pedir: cole a connection string do Neon
+      - key: CADASTRO_CHAVE
+        sync: false           # senha que você passa só às escolas autorizadas a se cadastrar

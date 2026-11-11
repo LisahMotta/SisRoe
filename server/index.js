@@ -16,7 +16,7 @@ const pastaPublica = path.join(raiz, '..', 'public');
 export async function criarApp() {
   await db.init();
   const app = express();
-  app.set('trust proxy', 1); // Railway/Render ficam atrás de um proxy
+  app.set('trust proxy', 1); // o Render (e similares) fica atrás de um proxy
   app.use(helmet({
     contentSecurityPolicy: {
       directives: { 'default-src': ["'self'"], 'img-src': ["'self'", 'data:'], 'script-src': ["'self'"] },

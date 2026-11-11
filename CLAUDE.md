@@ -8,7 +8,7 @@ Guidance for Claude Code when working in this repository.
 npm install
 npm start      # http://localhost:3000 (SQLite in data/sisroe.db)
 npm run dev    # auto-restart on change
-npm test       # node:test API suite, in-memory SQLite
+npm test       # node:test API suite, in-memory SQLite (TEST_DATABASE_URL=... runs it on PostgreSQL)
 ```
 
 Syntax-check a file with `node --check <file>`. Requires Node >= 22.13 (uses built-in `node:sqlite`).
