@@ -1,0 +1,131 @@
+// telas/login.js — entrada no sistema e cadastro de uma escola nova.
+import { api, salvarSessao, ultimoCodigo } from '../api.js';
+import { $, esc, lerForm, avisar, avisarErro, comCarregando } from '../ui.js';
+import { estado, navegar } from '../app.js';
+
+export async function render(el) {
+  el.innerHTML = `
+    <section class="tela-login">
+      <div class="login-marca">
+        <div class="logo-quadro" aria-hidden="true">S</div>
+        <h1>SisRoe</h1>
+        <p>Registro de ocorrências escolares<br><small>Protocolo 179 · CONVIVA SP</small></p>
+      </div>
+      <form id="form-login" class="cartao" novalidate>
+        <h2>Entrar</h2>
+        <label>Código da escola
+          <input name="codigo" required autocomplete="organization" autocapitalize="none" value="${esc(ultimoCodigo())}"
+                 placeholder="ex.: ee-malba">
+        </label>
+        <label>Usuário
+          <input name="login" required autocomplete="username" autocapitalize="none">
+        </label>
+        <label>Senha
+          <input name="senha" type="password" required autocomplete="current-password">
+        </label>
+        <button class="btn btn-primario btn-largo" type="submit">Entrar</button>
+        <p class="ajuda">Esqueceu a senha? Peça à direção da sua escola para gerar uma senha provisória.</p>
+      </form>
+      <p class="login-cadastro">Sua escola ainda não usa o SisRoe? <a href="#/cadastro">Cadastre a escola</a></p>
+    </section>`;
+
+  const form = $('#form-login', el);
+  if (form.codigo.value) form.login.focus();
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const d = lerForm(form);
+    if (!d.codigo || !d.login || !d.senha) return avisar('Preencha código da escola, usuário e senha.', 'erro');
+    await comCarregando(form.querySelector('button'), async () => {
+      try {
+        const r = await api('/login', { metodo: 'POST', corpo: d });
+        salvarSessao({ token: r.token });
+        ultimoCodigo(d.codigo.trim().toLowerCase());
+        estado.usuario = null; // força recarregar dados da escola
+        navegar(r.usuario.trocar_senha ? '#/trocar-senha' : '#/painel');
+      } catch (e) { avisarErro(e); }
+    });
+  });
+}
+
+export async function renderCadastro(el) {
+  const cfg = await api('/config').catch(() => ({}));
+  el.innerHTML = `
+    <section class="tela-login tela-cadastro">
+      <div class="login-marca">
+        <div class="logo-quadro" aria-hidden="true">S</div>
+        <h1>Cadastrar escola</h1>
+        <p>Quem faz o cadastro vira o(a) administrador(a) da escola no sistema e depois cadastra os demais servidores.</p>
+      </div>
+      <form id="form-cadastro" class="cartao" novalidate>
+        <fieldset>
+          <legend>Dados da escola</legend>
+          <label>Nome da escola *
+            <input name="nome" required maxlength="150" placeholder="EE Professora …">
+          </label>
+          <div class="grade-2">
+            <label>Código de acesso *
+              <input name="codigo" required maxlength="30" autocapitalize="none" placeholder="ex.: ee-malba">
+              <small>Usado no login por todos da escola. Só letras minúsculas, números e hífen.</small>
+            </label>
+            <label>Código CIE
+              <input name="cie" maxlength="20" inputmode="numeric">
+            </label>
+          </div>
+          <div class="grade-2">
+            <label>Município <input name="municipio" maxlength="80"></label>
+            <label>Unidade Regional de Ensino <input name="diretoria" maxlength="120" placeholder="URE …"></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Seu acesso (administrador)</legend>
+          <label>Seu nome completo * <input name="adminNome" required maxlength="120"></label>
+          <div class="grade-2">
+            <label>Seu cargo
+              <select name="perfil"><option value="diretor">Diretor(a)</option><option value="vice">Vice-diretor(a)</option></select>
+            </label>
+            <label>Usuário * <input name="login" required maxlength="30" autocapitalize="none" autocomplete="username"></label>
+          </div>
+          <div class="grade-2">
+            <label>Senha * <input name="senha" type="password" required autocomplete="new-password"></label>
+            <label>Repita a senha * <input name="senha2" type="password" required autocomplete="new-password"></label>
+          </div>
+          <small>Pelo menos 8 caracteres, com letras e números.</small>
+        </fieldset>
+        ${cfg.cadastroExigeChave ? `<label>Chave de cadastro *
+            <input name="chave" required autocomplete="off"><small>Fornecida por quem administra este servidor.</small></label>` : ''}
+        <button class="btn btn-primario btn-largo" type="submit">Cadastrar escola</button>
+      </form>
+      <p class="login-cadastro"><a href="#/login">← Voltar ao login</a></p>
+    </section>`;
+
+  const form = $('#form-cadastro', el);
+  // Sugere o código a partir do nome, enquanto a pessoa não digitar um.
+  let codigoEditado = false;
+  form.codigo.addEventListener('input', () => { codigoEditado = true; });
+  form.nome.addEventListener('input', () => {
+    if (codigoEditado) return;
+    form.codigo.value = form.nome.value.normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30);
+  });
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const d = lerForm(form);
+    if (d.senha !== d.senha2) return avisar('As senhas não conferem.', 'erro');
+    await comCarregando(form.querySelector('button[type=submit]'), async () => {
+      try {
+        const r = await api('/escolas', { metodo: 'POST', corpo: {
+          chave: d.chave,
+          escola: { nome: d.nome, codigo: d.codigo, cie: d.cie, municipio: d.municipio, diretoria: d.diretoria },
+          admin: { nome: d.adminNome, login: d.login, senha: d.senha, perfil: d.perfil },
+        } });
+        const l = await api('/login', { metodo: 'POST', corpo: { codigo: r.codigo, login: d.login, senha: d.senha } });
+        salvarSessao({ token: l.token });
+        ultimoCodigo(r.codigo);
+        estado.usuario = null;
+        avisar(`Escola cadastrada! Código de acesso: ${r.codigo}`);
+        navegar('#/admin/primeiros-passos');
+      } catch (e) { avisarErro(e); }
+    });
+  });
+}
