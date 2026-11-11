@@ -1,9 +1,16 @@
 // Testes da API. Rode com: npm test
-// Usa um banco SQLite em memória, criado do zero a cada execução.
+// Por padrão usa um banco SQLite em memória, criado do zero a cada execução.
+// Para testar no PostgreSQL (como em produção), aponte para um banco VAZIO:
+//   TEST_DATABASE_URL=postgres://usuario@localhost:5432/sisroe_teste npm test
 process.env.NODE_ENV = 'test';
 process.env.SQLITE_FILE = ':memory:';
 process.env.JWT_SECRET = 'segredo-de-teste';
-delete process.env.DATABASE_URL;
+if (process.env.TEST_DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+  process.env.PGSSL = process.env.PGSSL || 'false';
+} else {
+  delete process.env.DATABASE_URL;
+}
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';

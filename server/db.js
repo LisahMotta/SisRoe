@@ -1,7 +1,7 @@
 // db.js — acesso ao banco de dados.
 //
 // Dois modos:
-//  • PostgreSQL, quando existe a variável DATABASE_URL (ex.: Railway).
+//  • PostgreSQL, quando existe a variável DATABASE_URL (ex.: Neon, gratuito).
 //  • SQLite em arquivo (data/sisroe.db), para rodar no computador sem instalar nada.
 //
 // Todo o SQL do sistema é escrito com "?" nos parâmetros; no modo PostgreSQL
@@ -200,7 +200,15 @@ export async function init() {
     pool = new pg.Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.PGSSL === 'false' ? false : { rejectUnauthorized: false },
+      max: Number(process.env.PG_MAX_CONEXOES) || 5,
+      // Bancos gratuitos (ex.: Neon) "dormem" e derrubam conexões paradas.
+      // Fechamos as ociosas antes disso e esperamos o banco acordar.
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 20000,
+      keepAlive: true,
     });
+    // Sem este tratamento, uma conexão ociosa derrubada pelo banco DERRUBA o servidor inteiro.
+    pool.on('error', (err) => console.warn('[db] conexão ociosa encerrada pelo banco:', err.message));
   } else {
     const { DatabaseSync } = await import('node:sqlite');
     const file = process.env.SQLITE_FILE || path.join(process.cwd(), 'data', 'sisroe.db');
@@ -217,9 +225,21 @@ export async function init() {
   console.log(`[db] usando ${USE_PG ? 'PostgreSQL' : 'SQLite'}`);
 }
 
+// Erro de conexão (banco reiniciou, acordou ou derrubou a conexão): vale tentar de novo uma vez.
+const ERRO_CONEXAO = /Connection terminated|ECONNRESET|ECONNREFUSED|EPIPE|terminating connection|server closed the connection/i;
+async function consultaPg(sql, params) {
+  try {
+    return await pool.query(sql, params);
+  } catch (e) {
+    if (!ERRO_CONEXAO.test(e.message) && !['57P01', '57P02', '57P03', '08006', '08003'].includes(e.code)) throw e;
+    console.warn('[db] conexão perdida, tentando de novo:', e.message);
+    return pool.query(sql, params);
+  }
+}
+
 /** Retorna todas as linhas. */
 export async function all(sql, params = []) {
-  if (USE_PG) return (await pool.query(toPg(sql), params)).rows;
+  if (USE_PG) return (await consultaPg(toPg(sql), params)).rows;
   return lite.prepare(sql).all(...params);
 }
 
@@ -230,13 +250,13 @@ export async function one(sql, params = []) {
 
 /** Executa um comando sem retorno (UPDATE, DELETE, CREATE…). */
 export async function run(sql, params = []) {
-  if (USE_PG) { await pool.query(toPg(sql), params); return; }
+  if (USE_PG) { await consultaPg(toPg(sql), params); return; }
   lite.prepare(sql).run(...params);
 }
 
 /** INSERT que devolve o id criado. */
 export async function insert(sql, params = []) {
-  if (USE_PG) return (await pool.query(toPg(sql) + ' RETURNING id', params)).rows[0].id;
+  if (USE_PG) return (await consultaPg(toPg(sql) + ' RETURNING id', params)).rows[0].id;
   return Number(lite.prepare(sql).run(...params).lastInsertRowid);
 }
 
@@ -247,6 +267,9 @@ export async function insert(sql, params = []) {
 export async function transacao(fn) {
   if (USE_PG) {
     const client = await pool.connect();
+    let quebrada = false;
+    const aoErro = (err) => { quebrada = true; console.warn('[db] conexão perdida durante transação:', err.message); };
+    client.on('error', aoErro);
     const tx = {
       all: async (s, p = []) => (await client.query(toPg(s), p)).rows,
       one: async (s, p = []) => (await client.query(toPg(s), p)).rows[0],
@@ -259,10 +282,13 @@ export async function transacao(fn) {
       await client.query('COMMIT');
       return r;
     } catch (e) {
-      await client.query('ROLLBACK');
+      // Se a conexão caiu, o ROLLBACK também falha: guardamos o erro original
+      // e descartamos a conexão quebrada em vez de devolvê-la ao pool.
+      try { await client.query('ROLLBACK'); } catch { quebrada = true; }
       throw e;
     } finally {
-      client.release();
+      client.off('error', aoErro);
+      client.release(quebrada);
     }
   }
   // SQLite é síncrono e de conexão única: BEGIN/COMMIT diretos.
