@@ -2,7 +2,7 @@
 import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import * as db from './db.js';
-import { PERFIS_GESTAO, PERFIS_ADMIN } from '../public/js/catalogo.js';
+import { PERFIS_GESTAO, PERFIS_ADMIN, PERFIS_BUSCA } from '../public/js/catalogo.js';
 
 let SECRET = process.env.JWT_SECRET;
 if (!SECRET) {
@@ -52,6 +52,13 @@ export const ehAdmin = (u) => PERFIS_ADMIN.includes(u.perfil);
 
 export function exigeGestao(req, res, next) {
   if (!ehGestao(req.usuario)) return res.status(403).json({ erro: 'Acesso restrito à equipe gestora.' });
+  next();
+}
+
+export const podeBuscaAtiva = (u) => PERFIS_BUSCA.includes(u.perfil);
+
+export function exigeBuscaAtiva(req, res, next) {
+  if (!podeBuscaAtiva(req.usuario)) return res.status(403).json({ erro: 'A busca ativa é feita pela equipe gestora, agentes, gerente de organização escolar e secretaria.' });
   next();
 }
 

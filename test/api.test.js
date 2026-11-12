@@ -468,8 +468,14 @@ test('Perfis Gerente de Organização Escolar e Secretário(a) de Escola', async
   assert.equal((await api('/ocorrencias', { token: goe })).dados.length, 1);
   assert.equal((await api('/ocorrencias', { token: sec })).dados.length, 0);
   assert.equal((await api(`/ocorrencias/${occ.dados.id}`, { token: sec })).status, 404);
-  // Não têm acesso às áreas da gestão.
-  assert.equal((await api('/busca-ativa', { token: sec })).status, 403);
+  // Cuidam da busca ativa (junto com agente e POC), mas não das demais áreas da gestão.
+  assert.equal((await api('/busca-ativa', { token: sec })).status, 200);
+  assert.equal((await api('/busca-ativa', { token: goe })).status, 200);
+  const caso = await api('/busca-ativa', { token: sec, metodo: 'POST', corpo: { aluno_id: alunosA[2].id, faltas: 5, telefone: '12 98765-4321' } });
+  assert.equal(caso.status, 201, JSON.stringify(caso.dados));
+  assert.equal((await api(`/busca-ativa/${caso.dados.id}/acoes`, { token: goe, metodo: 'POST', corpo: { tipo: 'whatsapp' } })).status, 201);
+  assert.equal((await api(`/busca-ativa/${caso.dados.id}`, { token: B })).status, 404);
+  assert.equal((await api('/alunos/' + alunosA[2].id + '/historico', { token: sec })).status, 403);
   assert.equal((await api('/equipe', { token: goe })).status, 403);
   assert.equal((await api('/usuarios', { token: sec })).status, 403);
   // Coordenação/POC podem gerar nova senha para eles.
@@ -480,4 +486,14 @@ test('Perfis Gerente de Organização Escolar e Secretário(a) de Escola', async
     assert.ok(u, `aparece na Equipe: ${login}`);
     assert.equal((await api(`/usuarios/${u.id}/resetar-senha`, { token: coord, metodo: 'POST' })).status, 200);
   }
+});
+
+test('Busca ativa: agente e POC acessam; professor não', async () => {
+  const agente = await criarUsuario(A, 'escola-a', 'agente9', 'agente');
+  const poc = await criarUsuario(A, 'escola-a', 'poc9', 'poc');
+  assert.equal((await api('/busca-ativa', { token: agente })).status, 200);
+  assert.equal((await api('/busca-ativa', { token: poc })).status, 200);
+  assert.equal((await api('/busca-ativa', { token: profA })).status, 403);
+  const r = await api('/busca-ativa/lote', { token: agente, metodo: 'POST', corpo: { itens: [{ aluno_id: alunosA[0].id, faltas: 2 }] } });
+  assert.equal(r.status, 201);
 });

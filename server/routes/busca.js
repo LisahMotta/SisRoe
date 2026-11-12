@@ -1,16 +1,17 @@
-// routes/busca.js — busca ativa de estudantes faltosos (equipe gestora).
+// routes/busca.js — busca ativa de estudantes faltosos (gestão, agentes, GOE e secretaria).
 //
 // O WhatsApp é aberto no aparelho de quem clica, com a mensagem pronta: a pessoa confere
 // e envia por lá. O sistema não dispara mensagens sozinho; ele registra a tentativa.
 import express from 'express';
 import * as db from '../db.js';
-import { exigeGestao } from '../auth.js';
+import { exigeBuscaAtiva } from '../auth.js';
 import { ErroHttp, txt, dataValida, rota } from '../util.js';
 import { normalizarTelefone } from './alunos.js';
 import { STATUS_BUSCA, TIPOS_ACAO_BUSCA, RISCOS_BUSCA } from '../../public/js/catalogo.js';
 
 const r = express.Router();
-r.use('/busca-ativa', exigeGestao);
+// Equipe gestora + agente, GOE e secretaria (PERFIS_BUSCA em catalogo.js).
+r.use('/busca-ativa', exigeBuscaAtiva);
 
 const TIPOS_ACAO = TIPOS_ACAO_BUSCA;
 const RISCOS = Object.keys(RISCOS_BUSCA);

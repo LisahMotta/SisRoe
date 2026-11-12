@@ -34,7 +34,8 @@ atualizar o catálogo não altera registros antigos. Para gerar o catálogo de u
 
 | Quem | O que pode fazer |
 |---|---|
-| Professor(a), Agente de Organização Escolar | Registrar ocorrências, ver as que registrou, conversar com a gestão no chat da ocorrência, ver o carômetro |
+| Professor(a) | Registrar ocorrências, ver as que registrou, conversar com a gestão no chat da ocorrência, ver o carômetro |
+| Agente e Gerente de Organização Escolar, Secretário(a) de Escola | Tudo o que o professor faz + **busca ativa** de faltosos (WhatsApp para as famílias) |
 | POC, Coordenação | Tudo acima + ver todas as ocorrências, receber os avisos de ocorrência nova, fazer o acompanhamento, histórico dos alunos, busca ativa, fotos do carômetro, exportar planilha e **gerar nova senha para professores e agentes** |
 | Vice-direção, Direção | Tudo acima + usuários, turmas, importação da SED, tipos, cancelar registros e auditoria |
 
@@ -54,7 +55,7 @@ atualizar o catálogo não altera registros antigos. Para gerar o catálogo de u
 - **Importação das listas da SED (CSV):** cria as turmas e os alunos sozinho, ignora quem não está "Ativo" e mostra
   uma prévia antes de importar. Também é possível colar a lista na turma (colunas RA e Nome).
 - **Carômetro:** fotos dos estudantes por turma, para os servidores reconhecerem os alunos.
-- **Busca ativa:** registro dos faltosos por turma, contato da família e mensagem de WhatsApp pronta (abre no aparelho
+- **Busca ativa** (equipe gestora, POC, agentes, GOE e secretaria): registro dos faltosos por turma, contato da família e mensagem de WhatsApp pronta (abre no aparelho
   de quem envia; nada é disparado automaticamente), com histórico de contatos e situação de cada caso.
 - Exportação para planilha (CSV que abre no Excel/Google Planilhas).
 - Funciona no celular.
