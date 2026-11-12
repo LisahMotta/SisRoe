@@ -35,7 +35,8 @@ export async function render(el) {
           <tr data-busca="${esc((u.nome + ' ' + u.login).toLowerCase())}">
             <td>${esc(u.nome)}</td><td>${esc(u.login)}</td><td>${esc(PERFIS[u.perfil] || u.perfil)}</td>
             <td>${u.trocar_senha ? '<span class="selo st-aberta">Aguardando 1º acesso</span>' : '<span class="selo st-encerrada">Ativo</span>'}</td>
-            <td><button class="btn btn-peq" data-reset="${u.id}" data-nome="${esc(u.nome)}" data-login="${esc(u.login)}" data-icone="chave">Nova senha</button></td>
+            <td>${(u.perfil === 'diretor' && estado.usuario.perfil !== 'master') || (u.perfil === 'master' && estado.usuario.perfil !== 'diretor') ? '<small class="ajuda">só pelo ' + (u.perfil === 'diretor' ? 'master' : 'diretor(a)') + '</small>'
+              : `<button class="btn btn-peq" data-reset="${u.id}" data-nome="${esc(u.nome)}" data-login="${esc(u.login)}" data-icone="chave">Nova senha</button>`}</td>
           </tr>`).join('')}</tbody></table></div>
       ${lista.length ? '' : '<p class="vazio">Ninguém cadastrado ainda.</p>'}
     </div>`;

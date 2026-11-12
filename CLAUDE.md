@@ -30,7 +30,8 @@ Multi-school (multi-tenant) incident log. Express backend + vanilla JS SPA (ES m
   `trocar_senha` blocks everything except `/eu` and `/minha-senha`. Roles: `exigeGestao` (poc/coordenador/vice/diretor),
   `exigeAdmin` (system admin: vice/diretor/master), `exigeDirecao` (Res. 68 decisions + cancel: vice/diretor only),
   `exigeBuscaAtiva`, `exigeGestaoOuAdmin`. `master` = one per school, admin without access to student data; rules in
-  `conferirRegrasMaster` (escola.js).
+  `conferirRegrasMaster` (escola.js). Only the master resets the diretor's password; only the diretor resets the master's;
+  the vice cannot create, edit, deactivate or promote anyone (incl. self) to diretor.
 - `public/js/catalogo.js`: shared by server and browser: categories, MACROS (a–j), REGRAS_BO, default steps
   (`PROCEDIMENTOS`, used when a type has no own steps; keys stored in `ocorrencias.protocolo`), roles, labels.
 - `server/protocolo179.js` is GENERATED from the Protocolo 179 PDF (see `ferramentas/LEIAME.md`): 50 situations with

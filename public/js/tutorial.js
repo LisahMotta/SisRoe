@@ -164,7 +164,7 @@ const MASTER_APOIO = {
   icone: 'chave',
   rota: '#/equipe',
   titulo: 'Apoiar a direção',
-  texto: 'Em "Equipe e senhas" você gera nova senha provisória para qualquer pessoa da escola, inclusive a direção, quando alguém esquecer. Você não pode desativar nem mudar o perfil da direção.',
+  texto: 'Em "Equipe e senhas" você gera nova senha provisória para qualquer pessoa da escola, inclusive a direção, quando alguém esquecer. Só você gera nova senha para o(a) diretor(a): a vice-direção não pode. Você não pode desativar nem mudar o perfil da direção.',
 };
 const MASTER_ATUALIZAR = {
   icone: 'tendencia',

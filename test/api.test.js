@@ -537,6 +537,20 @@ test('Usuário master: configura a escola, ajuda a direção e não vê dados de
   await api('/minha-senha', { token: V, metodo: 'POST', corpo: { atual: vice.senhaProvisoria, nova: 'Vera2026x' } });
   assert.equal((await api(`/usuarios/${mario.id}`, { token: V, metodo: 'PUT', corpo: { ativo: false } })).status, 403);
   assert.equal((await api(`/usuarios/${mario.id}/resetar-senha`, { token: V, metodo: 'POST' })).status, 403);
+  // Senha da direção: só o master. A vice não gera, não altera, não desativa nem cria diretor (nem se promove).
+  assert.equal((await api(`/usuarios/${dina.id}/resetar-senha`, { token: V, metodo: 'POST' })).status, 403);
+  assert.equal((await api(`/usuarios/${dina.id}`, { token: V, metodo: 'PUT', corpo: { ativo: false } })).status, 403);
+  assert.equal((await api(`/usuarios/${dina.id}`, { token: V, metodo: 'PUT', corpo: { perfil: 'professor' } })).status, 403);
+  assert.equal((await api('/usuarios', { token: V, metodo: 'POST', corpo: { nome: 'Novo Diretor', login: '77777777', perfil: 'diretor' } })).status, 403);
+  const souEu = (await api('/eu', { token: V })).dados.usuario;
+  assert.equal((await api(`/usuarios/${souEu.id}`, { token: V, metodo: 'PUT', corpo: { perfil: 'diretor' } })).status, 403, 'vice não se promove');
+  const lote = (await api('/usuarios/lote', { token: V, metodo: 'POST', corpo: { usuarios: [{ nome: 'Diretor Lote', documento: '88888888', perfil: 'diretor' }, { nome: 'Prof Lote', documento: '99999999', perfil: 'professor' }] } })).dados;
+  assert.equal(lote.criados.length, 1);
+  assert.match(lote.ignorados[0].motivo, /vice-direção/);
+  // A vice continua gerando senha para os demais (ex.: professor) e editando o nome da direção.
+  const profLote = (await api('/usuarios', { token: V })).dados.find((u) => u.login === '99999999');
+  assert.equal((await api(`/usuarios/${profLote.id}/resetar-senha`, { token: V, metodo: 'POST' })).status, 200);
+  assert.equal((await api(`/usuarios/${dina.id}`, { token: V, metodo: 'PUT', corpo: { nome: 'Dina Diretora Silva' } })).status, 200);
   // Isolamento: o master de uma escola não alcança outra.
   assert.equal((await api('/usuarios', { token: M })).dados.some((u) => u.login === 'diretora'), false);
 });

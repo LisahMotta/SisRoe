@@ -70,6 +70,8 @@ function senhaProvisoria() {
  *  • só o(a) diretor(a) cadastra, altera ou desativa o master (o próprio master pode editar o nome);
  *  • no máximo um master ativo por escola;
  *  • o master não desativa nem muda o perfil da direção (pode gerar nova senha para ajudar).
+ * Regra da vice-direção: não cadastra, altera, desativa nem promove ninguém a diretor(a), nem a si mesma
+ * (senão poderia entrar como direção). A nova senha da direção é só com o master (rota resetar-senha).
  */
 async function conferirRegrasMaster(ator, { alvo = null, perfil, ativo }) {
   const mexeNoMaster = perfil === 'master' || alvo?.perfil === 'master';
@@ -82,6 +84,10 @@ async function conferirRegrasMaster(ator, { alvo = null, perfil, ativo }) {
       "SELECT id FROM usuarios WHERE escola_id = ? AND perfil = 'master' AND ativo = 1 AND id <> ?",
       [ator.escola_id, alvo?.id ?? 0]);
     if (outro) throw new ErroHttp(409, 'Esta escola já tem um usuário master. Desative o atual antes de cadastrar outro.');
+  }
+  if (ator.perfil === 'vice' && (perfil === 'diretor' || alvo?.perfil === 'diretor')
+      && !(alvo?.perfil === 'diretor' && perfil === 'diretor' && ativo === alvo.ativo)) {
+    throw new ErroHttp(403, 'A vice-direção não cadastra, altera nem desativa a direção. Procure o(a) diretor(a) ou o usuário master.');
   }
   if (ator.perfil === 'master' && alvo?.perfil === 'diretor' && (perfil !== 'diretor' || !ativo)) {
     throw new ErroHttp(403, 'O usuário master não pode desativar nem mudar o perfil da direção.');
@@ -135,7 +141,7 @@ r.put('/usuarios/:id', exigeAdmin, rota(async (req, res) => {
 }));
 
 // Quem pode gerar nova senha provisória:
-//  • direção e vice-direção: qualquer usuário da escola;
+//  • direção, vice-direção e master: qualquer usuário da escola, exceto a direção (só o master) e o master (só a direção);
 //  • coordenação e POC: professores, agentes e gerente de organização escolar e secretário(a) de escola.
 export const PERFIS_SENHA_PELA_GESTAO = ['professor', 'agente', 'gerente', 'secretaria'];
 
@@ -150,6 +156,10 @@ r.post('/usuarios/:id/resetar-senha', exigeGestaoOuAdmin, rota(async (req, res) 
   if (id === req.usuario.id) throw new ErroHttp(400, 'Para trocar a sua própria senha, use "Minha conta".');
   if (alvo.perfil === 'master' && req.usuario.perfil !== 'diretor') {
     throw new ErroHttp(403, 'Apenas o(a) diretor(a) pode gerar nova senha para o usuário master.');
+  }
+  // Senha da direção: só o master (quem gera a senha consegue entrar na conta e ver tudo).
+  if (alvo.perfil === 'diretor' && req.usuario.perfil !== 'master') {
+    throw new ErroHttp(403, 'Apenas o usuário master pode gerar nova senha para o(a) diretor(a).');
   }
   const provisoria = senhaProvisoria();
   await db.run('UPDATE usuarios SET senha_hash = ?, trocar_senha = 1, falhas_login = 0, bloqueado_ate = NULL WHERE id = ? AND escola_id = ?',
@@ -189,6 +199,9 @@ r.post('/usuarios/lote', exigeAdmin, rota(async (req, res) => {
     const login = normalizarLogin(p.documento);
     // O master é único e só a direção o cadastra (individualmente): na lista vira professor.
     const perfil = PERFIS[p.perfil] && p.perfil !== 'master' ? p.perfil : 'professor';
+    if (perfil === 'diretor' && req.usuario.perfil === 'vice') {
+      ignorados.push({ nome: nome || '(sem nome)', motivo: 'a vice-direção não cadastra a direção' }); continue;
+    }
     if (!nome || login.length < 5) { ignorados.push({ nome: nome || '(sem nome)', motivo: 'nome ou documento ausente' }); continue; }
     if (vistos.has(login)) { ignorados.push({ nome, motivo: 'documento repetido na lista' }); continue; }
     vistos.add(login);
