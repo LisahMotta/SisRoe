@@ -51,6 +51,9 @@ Multi-school (multi-tenant) incident log. Express backend + vanilla JS SPA (ES m
   `LTRIM(ra,'0')`. Carômetro photos are resized client-side and stored in `fotos_alunos` (no persistent disk on Vercel).
   `POST /alunos` (any role but master) adds a student missing from the list, RA optional (`incluido_por`/`incluido_em`);
   SED and pasted imports fill the RA of a same-name student without RA instead of duplicating.
+  Carômetro files (PDF/JPG ≤20 MB): `routes/carometros.js`, stored base64 in `carometro_partes` and sent/fetched in
+  ~2.8M-char parts (Vercel 4.5 MB request/response limit); one per turma (new replaces old). Batch photos:
+  `casarFoto` in `public/js/imagem.js` matches file names to RA/name, then `PUT /alunos/:id/foto`.
   Busca ativa: `routes/busca.js` (access = `PERFIS_BUSCA`: gestão + agente, gerente, secretaria; not professor); WhatsApp only opens `wa.me` links (`public/js/whatsapp.js`), never sends by itself.
 - Integrity rules: the original relato is never edited (use notas), gravidade only goes up, ocorrências are cancelled
   (with a reason), never deleted.

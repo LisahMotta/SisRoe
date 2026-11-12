@@ -38,7 +38,7 @@ const CAROMETRO = {
   icone: 'pessoa',
   rota: '#/carometro',
   titulo: 'Reconhecer os estudantes no carômetro',
-  texto: 'O carômetro mostra a foto e o nome dos estudantes de cada turma. Use para identificar corretamente quem estava envolvido antes de registrar.',
+  texto: 'O carômetro mostra a foto e o nome dos estudantes de cada turma. Use para identificar corretamente quem estava envolvido antes de registrar. Se a direção enviou o carômetro da turma em PDF ou JPG, ele aparece no alto da tela, com o botão "Abrir".',
 };
 
 const NOTIF = {
@@ -114,7 +114,7 @@ const ADMIN_SED = {
   icone: 'baixar',
   rota: '#/admin/sed',
   titulo: 'Importar turmas e alunos da SED',
-  texto: 'Em "Administração → Importar da SED", envie os arquivos CSV exportados da Secretaria Escolar Digital. O sistema cria as turmas e os alunos, mostra uma prévia e ignora quem não está ativo. Depois, coloque as fotos no carômetro.',
+  texto: 'Em "Administração → Importar da SED", envie os arquivos CSV exportados da Secretaria Escolar Digital. O sistema cria as turmas e os alunos, mostra uma prévia e ignora quem não está ativo. Depois, coloque as fotos no carômetro: em "Administração → Carômetro" dá para enviar muitas fotos de uma vez (o nome de cada arquivo é o RA ou o nome do aluno) e o carômetro pronto da turma em PDF ou JPG.',
 };
 
 const AFASTAMENTO = {
@@ -134,7 +134,7 @@ const MASTER_INICIO = {
   icone: 'escola',
   rota: '#/admin/primeiros-passos',
   titulo: 'Configuração inicial da escola',
-  texto: 'Em "Administração → Primeiros passos" siga a lista: dados da escola (aparecem nos documentos), turmas e alunos (importe os CSV da SED em "Importar da SED"), fotos do carômetro e a mensagem de WhatsApp da busca ativa.',
+  texto: 'Em "Administração → Primeiros passos" siga a lista: dados da escola (aparecem nos documentos), turmas e alunos (importe os CSV da SED em "Importar da SED"), fotos do carômetro (em lote ou o PDF/JPG da turma, em "Administração → Carômetro") e a mensagem de WhatsApp da busca ativa.',
 };
 const MASTER_EQUIPE = {
   icone: 'alunos',

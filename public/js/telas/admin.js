@@ -1,11 +1,12 @@
 // telas/admin.js — administração da escola (direção e vice-direção).
-// Abas: primeiros passos, escola, usuários, turmas e alunos, tipos, auditoria.
+// Abas: primeiros passos, escola, usuários, turmas e alunos, SED, carômetro, tipos, auditoria.
 import { api } from '../api.js';
 import { $, $$, esc, lerForm, avisar, avisarErro, comCarregando, abrirModal, fecharModal, dataHoraBR, seloGravidade, aplicarIcones, imprimirAvulso } from '../ui.js';
 import { estado, ehAdmin, recarregarCadastros } from '../app.js';
 import { PERFIS, CATEGORIAS, GRAVIDADES, MACROS } from '../catalogo.js';
 import { lerArquivoSED, lerListaEquipe, lerArquivoTexto } from '../sed.js';
 import { MODELO_PADRAO, CAMPOS_MODELO } from '../whatsapp.js';
+import { reduzirFoto, casarFoto, enviarCarometro, tipoCarometro, abrirCarometro, tamanhoLegivel, MAX_CAROMETRO } from '../imagem.js';
 
 const ABAS = {
   'primeiros-passos': 'Primeiros passos',
@@ -13,6 +14,7 @@ const ABAS = {
   usuarios: 'Usuários',
   turmas: 'Turmas e alunos',
   sed: 'Importar da SED',
+  carometro: 'Carômetro',
   tipos: 'Tipos de ocorrência',
   auditoria: 'Auditoria',
 };
@@ -30,7 +32,7 @@ export async function render(el, [aba = 'primeiros-passos', ...resto]) {
     </nav>
     <div id="aba"></div>`;
   const alvo = $('#aba', el);
-  const telas = { 'primeiros-passos': primeirosPassos, escola, usuarios, turmas, sed, tipos, auditoria };
+  const telas = { 'primeiros-passos': primeirosPassos, escola, usuarios, turmas, sed, carometro, tipos, auditoria };
   await telas[aba](alvo, resto);
 }
 
@@ -432,6 +434,132 @@ async function sed(el) {
 }
 
 // ─── Tipos de ocorrência ─────────────────────────────────────────────────────
+// ─── Carômetro: fotos em lote (JPG) e carômetro da turma (PDF ou JPG) ────────
+async function carometro(el) {
+  el = novoContainer(el);
+  const [arquivos, alunos] = await Promise.all([api('/carometros'), api('/alunos-lista')]);
+  const comFoto = alunos.filter((a) => Number(a.tem_foto)).length;
+  const opcoesTurma = estado.turmas.map((t) => `<option value="${t.id}">${esc(t.nome)}</option>`).join('');
+  el.innerHTML = `
+    <section class="cartao">
+      <h2>Fotos dos estudantes em lote (JPG)</h2>
+      <p>Escolha várias fotos de uma vez. Cada foto é ligada ao estudante pelo <b>nome do arquivo</b>:</p>
+      <ul class="guia-lista">
+        <li>pelo <b>RA</b>: <code>000123456789.jpg</code>, <code>123456789-5.jpg</code> ou <code>RA 123456789.jpg</code>;</li>
+        <li>ou pelo <b>nome completo</b>: <code>Ana Beatriz Souza.jpg</code> (acentos e maiúsculas não importam).</li>
+      </ul>
+      <p class="ajuda">${alunos.length} estudante(s) ativo(s), ${comFoto} com foto. As fotos são recortadas em retrato e reduzidas
+        antes do envio. Quem já tem foto fica com a nova. Use apenas fotos autorizadas pela escola (ECA e LGPD).</p>
+      <label class="btn btn-primario" for="lote-fotos" data-icone="camera">Escolher fotos (JPG ou PNG)</label>
+      <input type="file" id="lote-fotos" accept="image/jpeg,image/png" multiple class="visualmente-oculto">
+      <div id="lote-previa"></div>
+    </section>
+
+    <section class="cartao">
+      <h2>Carômetro da turma (PDF ou JPG)</h2>
+      <p>Envie o carômetro já pronto, por exemplo o PDF gerado pela SED ou a foto da folha da turma.
+        Ele aparece para toda a equipe na tela <a href="#/carometro">Carômetro</a>, com o botão <b>Abrir</b>.</p>
+      <div class="grade-2">
+        <label>Turma
+          <select id="caro-turma-arq"><option value="">Escola toda (várias turmas no mesmo arquivo)</option>${opcoesTurma}</select></label>
+        <label>Arquivo (PDF ou JPG, até ${tamanhoLegivel(MAX_CAROMETRO)})
+          <input type="file" id="caro-arquivo" accept="application/pdf,.pdf,image/jpeg,image/png"></label>
+      </div>
+      <div class="linha-btn"><button class="btn btn-primario" id="caro-enviar" data-icone="enviar" disabled>Enviar carômetro</button>
+        <span class="ajuda" id="caro-progresso"></span></div>
+      <p class="ajuda">Se a turma já tiver um carômetro, o novo substitui o anterior. PDF com várias turmas? Escolha "Escola toda"
+        ou, melhor, envie um arquivo por turma (fica mais leve para abrir no celular).</p>
+      ${arquivos.length ? `<h3>Enviados (${arquivos.length})</h3>
+        <table class="tabela"><thead><tr><th>Turma</th><th>Arquivo</th><th>Enviado</th><th></th></tr></thead><tbody>
+        ${arquivos.map((c) => `<tr><td>${c.turma_id ? esc(c.turma_nome || '') : 'Escola toda'}</td>
+          <td>${esc(c.nome_arquivo)} <small>(${c.mime === 'application/pdf' ? 'PDF' : 'imagem'}, ${tamanhoLegivel(c.tamanho)})</small></td>
+          <td><small>${esc(c.enviado_por_nome || '')}<br>${dataHoraBR(c.criado_em)}</small></td>
+          <td><div class="linha-btn"><button class="btn btn-peq" data-abrir-arq="${c.id}" data-icone="olho">Abrir</button>
+            <button class="btn btn-peq btn-perigo-claro" data-remover-arq="${c.id}" data-icone="lixeira">Remover</button></div></td></tr>`).join('')}
+        </tbody></table>` : '<p class="vazio">Nenhum carômetro em arquivo enviado ainda.</p>'}
+    </section>`;
+  aplicarIcones(el);
+
+  // ── Fotos em lote ──
+  let fila = [];
+  const previa = $('#lote-previa', el);
+  const desenharPrevia = () => {
+    const ok = fila.filter((f) => f.aluno);
+    const falta = fila.filter((f) => !f.aluno);
+    previa.innerHTML = `
+      <div class="lote-resumo"><b>${ok.length}</b> foto(s) reconhecida(s)${falta.length ? ` · <b class="txt-perigo">${falta.length}</b> sem estudante correspondente` : ''}</div>
+      <div class="tabela-rolagem"><table class="tabela"><thead><tr><th>Arquivo</th><th>Estudante</th><th>Situação</th></tr></thead><tbody>
+      ${fila.map((f) => `<tr class="${f.aluno ? '' : 'linha-alerta'}"><td><small>${esc(f.arquivo.name)}</small></td>
+        <td>${f.aluno ? `${esc(f.aluno.nome)} <small>${esc(f.aluno.turma_nome || '')} · pelo ${f.por}${Number(f.aluno.tem_foto) ? ' · troca a foto atual' : ''}</small>` : '—'}</td>
+        <td>${f.status ? esc(f.status) : (f.aluno ? 'pronta' : esc(f.motivo))}</td></tr>`).join('')}
+      </tbody></table></div>
+      ${falta.length ? '<p class="ajuda">As fotos sem estudante não serão enviadas. Renomeie o arquivo com o RA ou o nome completo do estudante e escolha de novo.</p>' : ''}
+      <div class="linha-btn"><button class="btn btn-primario" id="lote-enviar" data-icone="enviar" ${ok.length ? '' : 'disabled'}>Enviar ${ok.length} foto(s)</button>
+        <button class="btn" id="lote-cancelar">Cancelar</button></div>`;
+    aplicarIcones(previa);
+  };
+  $('#lote-fotos', el).addEventListener('change', (ev) => {
+    const arquivosEscolhidos = [...ev.target.files];
+    ev.target.value = '';
+    if (!arquivosEscolhidos.length) return;
+    // Duas fotos para o mesmo estudante: fica a última da lista.
+    const vistos = new Map();
+    fila = arquivosEscolhidos.map((arquivo) => ({ arquivo, ...casarFoto(arquivo.name, alunos) }));
+    fila.forEach((f, i) => { if (f.aluno) { if (vistos.has(f.aluno.id)) { const ant = fila[vistos.get(f.aluno.id)]; ant.motivo = 'outra foto do mesmo estudante foi escolhida'; ant.aluno = null; } vistos.set(f.aluno.id, i); } });
+    desenharPrevia();
+  });
+  previa.addEventListener('click', async (ev) => {
+    if (ev.target.closest('#lote-cancelar')) { fila = []; previa.innerHTML = ''; return; }
+    const botao = ev.target.closest('#lote-enviar');
+    if (!botao) return;
+    botao.disabled = true;
+    let enviadas = 0, erros = 0;
+    for (const f of fila.filter((x) => x.aluno)) {
+      f.status = 'enviando…'; desenharPrevia(); $('#lote-enviar', previa).disabled = true;
+      try {
+        await api(`/alunos/${f.aluno.id}/foto`, { metodo: 'PUT', corpo: { imagem: await reduzirFoto(f.arquivo) } });
+        f.status = 'enviada ✓'; enviadas++;
+      } catch (e) { f.status = `erro: ${e.message}`; erros++; }
+    }
+    desenharPrevia();
+    $('#lote-enviar', previa).remove();
+    avisar(`${enviadas} foto(s) enviada(s)${erros ? `, ${erros} com erro` : ''}.`, erros ? 'erro' : 'ok');
+  });
+
+  // ── Carômetro em arquivo ──
+  const inpArq = $('#caro-arquivo', el);
+  inpArq.addEventListener('change', () => {
+    const f = inpArq.files[0];
+    if (f && !tipoCarometro(f)) { avisar('Escolha um arquivo PDF ou JPG.', 'erro'); inpArq.value = ''; }
+    else if (f && tipoCarometro(f) === 'application/pdf' && f.size > MAX_CAROMETRO) { avisar('O PDF tem mais de 20 MB. Divida por turma.', 'erro'); inpArq.value = ''; }
+    $('#caro-enviar', el).disabled = !inpArq.files[0];
+  });
+  $('#caro-enviar', el).addEventListener('click', async (ev) => {
+    const botao = ev.currentTarget;
+    const prog = $('#caro-progresso', el);
+    botao.disabled = true;
+    try {
+      await enviarCarometro(inpArq.files[0], $('#caro-turma-arq', el).value, (p) => { prog.textContent = `Enviando… ${Math.round(p * 100)}%`; });
+      avisar('Carômetro enviado. Ele já aparece na tela Carômetro.');
+      await carometro(el.parentElement);
+    } catch (e) { avisarErro(e); prog.textContent = ''; botao.disabled = false; }
+  });
+  el.addEventListener('click', async (ev) => {
+    const abrir = ev.target.closest('[data-abrir-arq]');
+    const remover = ev.target.closest('[data-remover-arq]');
+    if (abrir) {
+      const c = arquivos.find((x) => x.id === Number(abrir.dataset.abrirArq));
+      try { await abrirCarometro(c); } catch (e) { avisarErro(e); }
+    }
+    if (remover) {
+      const c = arquivos.find((x) => x.id === Number(remover.dataset.removerArq));
+      if (!confirm(`Remover o carômetro "${c.nome_arquivo}"? As fotos individuais dos estudantes não são afetadas.`)) return;
+      try { await api(`/carometros/${c.id}`, { metodo: 'DELETE' }); avisar('Carômetro removido.'); await carometro(el.parentElement); }
+      catch (e) { avisarErro(e); }
+    }
+  });
+}
+
 async function tipos(el) {
   const box = novoContainer(el);
   const lista = await api('/tipos?todos=1');

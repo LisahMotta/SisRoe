@@ -163,6 +163,28 @@ function schema() {
       atualizado_em TEXT NOT NULL,
       UNIQUE (escola_id, aluno_id)
     )`,
+    // Carômetro da turma em arquivo (PDF ou imagem), guardado em partes: a Vercel limita
+    // cada envio e cada resposta a ~4,5 MB, então o arquivo vai e volta em pedaços.
+    `CREATE TABLE IF NOT EXISTS carometros (
+      ${ID},
+      escola_id INTEGER NOT NULL,
+      turma_id INTEGER,
+      nome_arquivo TEXT NOT NULL,
+      mime TEXT NOT NULL,
+      tamanho INTEGER NOT NULL,
+      partes INTEGER NOT NULL,
+      completo INTEGER NOT NULL DEFAULT 0,
+      enviado_por_nome TEXT,
+      criado_em TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS carometro_partes (
+      ${ID},
+      escola_id INTEGER NOT NULL,
+      carometro_id INTEGER NOT NULL,
+      ordem INTEGER NOT NULL,
+      dados TEXT NOT NULL,
+      UNIQUE (carometro_id, ordem)
+    )`,
     // Busca ativa: estudantes faltosos e as ações de contato com a família.
     `CREATE TABLE IF NOT EXISTS busca_ativa (
       ${ID},
