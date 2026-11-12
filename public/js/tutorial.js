@@ -129,6 +129,37 @@ const ADMIN_GERAL = {
   texto: 'Em "Administração" você mantém os dados da escola (aparecem nos documentos), as turmas, os tipos de ocorrência (as 50 situações do Protocolo 179 já vêm prontas), a mensagem de WhatsApp da busca ativa e consulta a auditoria. Só a direção pode cancelar um registro (com motivo).',
 };
 
+const MASTER_INICIO = {
+  icone: 'escola',
+  rota: '#/admin/primeiros-passos',
+  titulo: 'Configuração inicial da escola',
+  texto: 'Em "Administração → Primeiros passos" siga a lista: dados da escola (aparecem nos documentos), turmas e alunos (importe os CSV da SED em "Importar da SED"), fotos do carômetro e a mensagem de WhatsApp da busca ativa.',
+};
+const MASTER_EQUIPE = {
+  icone: 'alunos',
+  rota: '#/admin/usuarios',
+  titulo: 'Cadastrar a direção e a equipe',
+  texto: 'Em "Administração → Usuários", cadastre primeiro o(a) diretor(a) e depois use "Importar lista" com o nome e o RG/CIN da equipe. Imprima a lista de acessos e entregue à direção.\n'
+    + 'Cada escola tem um único usuário master. Só o(a) diretor(a) pode alterar ou desativar o master.',
+};
+const MASTER_APOIO = {
+  icone: 'chave',
+  rota: '#/equipe',
+  titulo: 'Apoiar a direção',
+  texto: 'Em "Equipe e senhas" você gera nova senha provisória para qualquer pessoa da escola, inclusive a direção, quando alguém esquecer. Você não pode desativar nem mudar o perfil da direção.',
+};
+const MASTER_ATUALIZAR = {
+  icone: 'tendencia',
+  rota: '#/admin/tipos',
+  titulo: 'Atualizações do sistema',
+  texto: 'Quando sair uma nova versão do Protocolo 179 ou uma atualização do SisRoe, use "Administração → Tipos de ocorrência → Atualizar catálogo do Protocolo 179" (as ocorrências já registradas não mudam). Confira em "Auditoria" o que foi feito no sistema e por quem.',
+};
+const MASTER_PRIVACIDADE = {
+  icone: 'cadeado',
+  titulo: 'O que o master não acessa',
+  texto: 'Por privacidade (ECA e LGPD), o usuário master não vê ocorrências, histórico de estudantes nem a busca ativa, e não decide medidas da Res. SEDUC nº 68/2026 (afastamento preventivo, relatório circunstanciado, cancelamento de registros): essas são atribuições da direção e da equipe gestora.',
+};
+
 export const TUTORIAIS = {
   professor: {
     resumo: 'Você registra as ocorrências da sua sala e conversa com a equipe gestora sobre cada uma.',
@@ -157,6 +188,10 @@ export const TUTORIAIS = {
   vice: {
     resumo: 'Você acompanha as ocorrências e administra o sistema da escola: equipe, turmas, alunos e medidas da Res. SEDUC nº 68/2026.',
     passos: [ACESSO, AVISOS_GESTAO, ACOMPANHAR, ADMIN_USUARIOS, ADMIN_SED, BUSCA, AFASTAMENTO, PAINEL, PDF],
+  },
+  master: {
+    resumo: 'Você é o usuário master da escola: faz a configuração inicial do SisRoe, cadastra a equipe e ajuda a direção nas atualizações e com senhas esquecidas.',
+    passos: [ACESSO, MASTER_INICIO, MASTER_EQUIPE, MASTER_APOIO, MASTER_ATUALIZAR, NOTIF, MASTER_PRIVACIDADE],
   },
   diretor: {
     resumo: 'Você administra o SisRoe da escola: cadastra a equipe, importa as turmas, acompanha as ocorrências e decide as medidas excepcionais.',

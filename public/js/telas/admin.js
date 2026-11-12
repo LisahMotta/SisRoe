@@ -66,7 +66,8 @@ async function primeirosPassos(el) {
       ${item(!!estado.escola.municipio, 'Conferir os dados da escola (aparecem no cabeçalho dos documentos impressos)', '#/admin/escola')}
       ${item(estado.turmas.length > 0, 'Cadastrar as turmas', '#/admin/turmas')}
       ${item(temAlunos, 'Importar os alunos: envie as listas CSV exportadas da SED (cria as turmas sozinho)', '#/admin/sed')}
-      ${item(usuarios.length > 1, 'Cadastrar professores, agentes, gerente de organização escolar, secretaria, POC, coordenação e vice-direção', '#/admin/usuarios')}
+      ${item(usuarios.some((u) => u.perfil === 'diretor'), 'Cadastrar o(a) diretor(a) da escola (se quem configurou foi o usuário master)', '#/admin/usuarios')}
+      ${item(usuarios.length > 2, 'Cadastrar professores, agentes, gerente de organização escolar, secretaria, POC, coordenação e vice-direção', '#/admin/usuarios')}
       ${item(false, 'Conhecer os tipos de ocorrência: as 50 situações do Protocolo 179 (3ª versão) e as indisciplinas do dia a dia', '#/admin/tipos')}
     </ol>
     <p class="ajuda">Código de acesso da escola: <b>${esc(estado.escola.codigo)}</b>. Todos os servidores usam esse código para entrar.</p>
@@ -117,6 +118,8 @@ async function usuarios(el) {
     </section>
     <form id="form-usuario" class="cartao">
       <h2>Novo usuário</h2>
+      <p class="ajuda">O <b>usuário master</b> (um por escola) faz a configuração e as atualizações do sistema e ajuda a direção, mas não vê
+        ocorrências nem dados de estudantes. Só o(a) diretor(a) cadastra, altera ou desativa o master.</p>
       <div class="grade-3">
         <label>Nome completo * <input name="nome" required maxlength="120"></label>
         <label>Usuário: RG ou CIN * <input name="login" required maxlength="30" autocapitalize="none" inputmode="text" placeholder="ex.: 12.345.678-X">

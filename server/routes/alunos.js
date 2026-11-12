@@ -1,7 +1,7 @@
 // routes/alunos.js — importação das listas da SED, contato da família e carômetro.
 import express from 'express';
 import * as db from '../db.js';
-import { exigeAdmin, exigeGestao } from '../auth.js';
+import { exigeAdmin, exigeGestao, exigeGestaoOuAdmin } from '../auth.js';
 import { ErroHttp, txt, dataValida, rota } from '../util.js';
 
 const r = express.Router();
@@ -132,7 +132,7 @@ r.get('/turmas/:id/carometro', rota(async (req, res) => {
 
 const MAX_FOTO = 400 * 1024; // após a redução no navegador, uma foto fica bem abaixo disso
 
-r.put('/alunos/:id/foto', exigeGestao, rota(async (req, res) => {
+r.put('/alunos/:id/foto', exigeGestaoOuAdmin, rota(async (req, res) => {
   const eid = req.usuario.escola_id;
   const a = await db.one('SELECT id FROM alunos WHERE id = ? AND escola_id = ?', [Number(req.params.id), eid]);
   if (!a) throw new ErroHttp(404, 'Aluno não encontrado.');
@@ -146,7 +146,7 @@ r.put('/alunos/:id/foto', exigeGestao, rota(async (req, res) => {
   res.json({ ok: true });
 }));
 
-r.delete('/alunos/:id/foto', exigeGestao, rota(async (req, res) => {
+r.delete('/alunos/:id/foto', exigeGestaoOuAdmin, rota(async (req, res) => {
   const eid = req.usuario.escola_id;
   await db.run('DELETE FROM fotos_alunos WHERE escola_id = ? AND aluno_id = ?', [eid, Number(req.params.id)]);
   await db.auditar(eid, req.usuario, 'foto_removida', { aluno: Number(req.params.id) });

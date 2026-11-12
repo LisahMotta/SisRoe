@@ -11,7 +11,7 @@
 //    informando o motivo (fica na auditoria).
 import express from 'express';
 import * as db from '../db.js';
-import { exigeGestao, exigeAdmin, ehGestao } from '../auth.js';
+import { exigeGestao, exigeDirecao, ehGestao } from '../auth.js';
 import { ErroHttp, txt, obrigatorio, dataValida, horaValida, rota } from '../util.js';
 import { ORDEM_GRAVIDADE, PAPEIS_ALUNO, PROCEDIMENTOS, STATUS, CATEGORIAS, GRAVIDADES, NIVEIS, MACROS } from '../../public/js/catalogo.js';
 import { passosDoTipo } from '../tipos.js';
@@ -334,7 +334,7 @@ r.post('/ocorrencias/:id/notas', rota(async (req, res) => {
   res.status(201).json({ ok: true });
 }));
 
-r.post('/ocorrencias/:id/cancelar', exigeAdmin, rota(async (req, res) => {
+r.post('/ocorrencias/:id/cancelar', exigeDirecao, rota(async (req, res) => {
   const o = await carregar(req, req.params.id);
   const motivo = obrigatorio(req.body?.motivo, 'motivo do cancelamento', 500);
   await db.run("UPDATE ocorrencias SET status = 'cancelada', motivo_cancelamento = ?, atualizado_em = ? WHERE id = ? AND escola_id = ?",

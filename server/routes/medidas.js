@@ -14,7 +14,7 @@
 //    reavaliação fundamentada e família comunicada (Art. 11, §§ 6º e 7º).
 import express from 'express';
 import * as db from '../db.js';
-import { exigeAdmin } from '../auth.js';
+import { exigeDirecao } from '../auth.js';
 import { ErroHttp, txt, obrigatorio, dataValida, rota } from '../util.js';
 import { HIPOTESES_AFASTAMENTO, AFASTAMENTO_MAX_DIAS, PROCEDIMENTOS } from '../../public/js/catalogo.js';
 
@@ -34,7 +34,7 @@ function dias(v, rotulo) {
   return n;
 }
 
-r.post('/ocorrencias/:id/afastamentos', exigeAdmin, rota(async (req, res) => {
+r.post('/ocorrencias/:id/afastamentos', exigeDirecao, rota(async (req, res) => {
   const u = req.usuario;
   const eid = u.escola_id;
   const o = await db.one('SELECT * FROM ocorrencias WHERE id = ? AND escola_id = ?', [Number(req.params.id), eid]);
@@ -84,7 +84,7 @@ r.post('/ocorrencias/:id/afastamentos', exigeAdmin, rota(async (req, res) => {
 }));
 
 // Atualiza comunicações / manifestação, prorroga ou encerra.
-r.put('/afastamentos/:id', exigeAdmin, rota(async (req, res) => {
+r.put('/afastamentos/:id', exigeDirecao, rota(async (req, res) => {
   const u = req.usuario;
   const a = await carregarAfastamento(req);
   const b = req.body || {};
@@ -139,7 +139,7 @@ r.put('/afastamentos/:id', exigeAdmin, rota(async (req, res) => {
 }));
 
 // Dados reunidos para o rascunho do relatório circunstanciado (Art. 15).
-r.get('/alunos/:id/relatorio', exigeAdmin, rota(async (req, res) => {
+r.get('/alunos/:id/relatorio', exigeDirecao, rota(async (req, res) => {
   const eid = req.usuario.escola_id;
   const aluno = await db.one(
     'SELECT a.id, a.ra, a.nome, t.nome AS turma_nome FROM alunos a LEFT JOIN turmas t ON t.id = a.turma_id WHERE a.id = ? AND a.escola_id = ?',

@@ -54,7 +54,8 @@ r.post('/escolas', limiteCadastro, rota(async (req, res) => {
   const login = normalizarLogin(a.login);
   if (login.length < 3) throw new ErroHttp(400, 'O usuário precisa ter ao menos 3 letras ou números (sem espaços).');
   if (!senhaForte(a.senha)) throw new ErroHttp(400, MSG_SENHA);
-  const perfil = a.perfil === 'vice' ? 'vice' : 'diretor';
+  // Quem cadastra a escola pode ser a direção ou o usuário master (que faz a configuração inicial).
+  const perfil = ['vice', 'master'].includes(a.perfil) ? a.perfil : 'diretor';
 
   if (await db.one('SELECT id FROM escolas WHERE codigo = ?', [codigo])) {
     throw new ErroHttp(409, 'Já existe uma escola com esse código. Escolha outro.');

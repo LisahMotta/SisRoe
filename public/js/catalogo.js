@@ -69,11 +69,17 @@ export const PERFIS = {
   coordenador: 'Coordenador(a) Pedagógico(a)',
   vice: 'Vice-Diretor(a)',
   diretor: 'Diretor(a) de Escola',
+  master: 'Administrador(a) master do sistema',
 };
 // Quem vê todas as ocorrências da escola e faz o acompanhamento.
 export const PERFIS_GESTAO = ['poc', 'coordenador', 'vice', 'diretor'];
-// Quem administra usuários, turmas, alunos e tipos.
-export const PERFIS_ADMIN = ['vice', 'diretor'];
+// Quem administra o sistema da escola: usuários, turmas, alunos, SED, tipos, catálogo e auditoria.
+// O "master" (um por escola) faz a configuração inicial e as atualizações, mas NÃO vê ocorrências
+// nem dados de estudantes (não está em PERFIS_GESTAO nem em PERFIS_BUSCA).
+export const PERFIS_ADMIN = ['vice', 'diretor', 'master'];
+// Decisões que a Res. SEDUC nº 68/2026 reserva à Direção: afastamento preventivo, relatório
+// circunstanciado e cancelamento de registros. O master não participa.
+export const PERFIS_DIRECAO = ['vice', 'diretor'];
 // Quem cuida da busca ativa de faltosos: equipe gestora + agente, GOE e secretaria (professor não).
 export const PERFIS_BUSCA = ['agente', 'gerente', 'secretaria', 'poc', 'coordenador', 'vice', 'diretor'];
 

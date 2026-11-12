@@ -497,3 +497,45 @@ test('Busca ativa: agente e POC acessam; professor não', async () => {
   const r = await api('/busca-ativa/lote', { token: agente, metodo: 'POST', corpo: { itens: [{ aluno_id: alunosA[0].id, faltas: 2 }] } });
   assert.equal(r.status, 201);
 });
+
+test('Usuário master: configura a escola, ajuda a direção e não vê dados de estudantes', async () => {
+  // Quem cadastra a escola pode entrar como master.
+  const c = await api('/escolas', { metodo: 'POST', corpo: {
+    escola: { nome: 'EE Master', codigo: 'escola-m' }, admin: { nome: 'Mário Master', login: '99.888.777-6', senha: 'Master2026', perfil: 'master' } } });
+  assert.equal(c.status, 201);
+  const M = (await api('/login', { metodo: 'POST', corpo: { codigo: 'escola-m', login: '998887776', senha: 'Master2026' } })).dados.token;
+  assert.equal((await api('/eu', { token: M })).dados.usuario.perfil, 'master');
+  // Configuração inicial: cadastra a direção, turmas (SED), atualiza o catálogo, vê a auditoria.
+  const d = await api('/usuarios', { token: M, metodo: 'POST', corpo: { nome: 'Dina Diretora', login: '11.222.333-4', perfil: 'diretor' } });
+  assert.equal(d.status, 201);
+  assert.equal((await api('/alunos/importar-sed', { token: M, metodo: 'POST', corpo: { linhas: [{ turma: '9º A', nome: 'Zé', ra: '777' }] } })).status, 200);
+  assert.equal((await api('/tipos/atualizar-protocolo', { token: M, metodo: 'POST' })).status, 200);
+  assert.equal((await api('/auditoria', { token: M })).status, 200);
+  // Um só master por escola, e o master não cria outro master.
+  assert.equal((await api('/usuarios', { token: M, metodo: 'POST', corpo: { nome: 'Outro', login: '55555555', perfil: 'master' } })).status, 403);
+  const D = (await api('/login', { metodo: 'POST', corpo: { codigo: 'escola-m', login: '112223334', senha: d.dados.senhaProvisoria } })).dados.token;
+  await api('/minha-senha', { token: D, metodo: 'POST', corpo: { atual: d.dados.senhaProvisoria, nova: 'Dina2026x' } });
+  assert.equal((await api('/usuarios', { token: D, metodo: 'POST', corpo: { nome: 'Outro', login: '55555555', perfil: 'master' } })).status, 409);
+  // A direção registra uma ocorrência; o master não vê ocorrências, histórico nem busca ativa.
+  const tipo = (await api('/tipos', { token: D })).dados.find((t) => t.codigo === 'A1');
+  const occ = (await api('/ocorrencias', { token: D, metodo: 'POST', corpo: { tipo_id: tipo.id, data: '2026-11-10', hora: '09:00', local: 'Sala', relato: 'Saiu da sala sem permissão do professor.', alunos: [{ nome: 'Zé' }] } })).dados;
+  assert.equal((await api('/ocorrencias', { token: M })).dados.length, 0);
+  assert.equal((await api(`/ocorrencias/${occ.id}`, { token: M })).status, 404);
+  assert.equal((await api('/busca-ativa', { token: M })).status, 403);
+  assert.equal((await api(`/ocorrencias/${occ.id}/cancelar`, { token: M, metodo: 'POST', corpo: { motivo: 'teste' } })).status, 403, 'cancelar é decisão da direção');
+  // Ajuda com senhas (inclusive da direção), mas não desativa nem rebaixa a direção.
+  const usuarios = (await api('/usuarios', { token: M })).dados;
+  const dina = usuarios.find((u) => u.login === '112223334');
+  const mario = usuarios.find((u) => u.login === '998887776');
+  assert.equal((await api(`/usuarios/${dina.id}/resetar-senha`, { token: M, metodo: 'POST' })).status, 200);
+  assert.equal((await api(`/usuarios/${dina.id}`, { token: M, metodo: 'PUT', corpo: { ativo: false } })).status, 403);
+  assert.equal((await api(`/usuarios/${dina.id}`, { token: M, metodo: 'PUT', corpo: { perfil: 'professor' } })).status, 403);
+  // Só a direção altera o master; o vice não.
+  const vice = (await api('/usuarios', { token: M, metodo: 'POST', corpo: { nome: 'Vera Vice', login: '22.333.444-5', perfil: 'vice' } })).dados;
+  const V = (await api('/login', { metodo: 'POST', corpo: { codigo: 'escola-m', login: '223334445', senha: vice.senhaProvisoria } })).dados.token;
+  await api('/minha-senha', { token: V, metodo: 'POST', corpo: { atual: vice.senhaProvisoria, nova: 'Vera2026x' } });
+  assert.equal((await api(`/usuarios/${mario.id}`, { token: V, metodo: 'PUT', corpo: { ativo: false } })).status, 403);
+  assert.equal((await api(`/usuarios/${mario.id}/resetar-senha`, { token: V, metodo: 'POST' })).status, 403);
+  // Isolamento: o master de uma escola não alcança outra.
+  assert.equal((await api('/usuarios', { token: M })).dados.some((u) => u.login === 'diretora'), false);
+});
