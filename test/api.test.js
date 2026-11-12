@@ -783,3 +783,90 @@ test('Backup: só a gestão baixa, em páginas, sem senhas e sem dados de outra 
   assert.equal((await api('/backup/registrar', { token: coord, metodo: 'POST', corpo: { formato: 'xlsx' } })).status, 200);
   assert.ok((await api('/auditoria', { token: E })).dados.some((a) => a.acao === 'backup_baixado'));
 });
+
+test('Restaurar backup: só acrescenta o que falta, não duplica, renumera e só aceita a própria escola', async () => {
+  const { prepararBackup, restaurar } = await import('../public/js/restauracao.js');
+  const E = await cadastrarEscola('escola-rest');
+  const outra = await cadastrarEscola('escola-rest-2');
+  const eid = (await api('/eu', { token: E })).dados.escola.id;
+  const turma = (await api('/turmas', { token: E, metodo: 'POST', corpo: { nome: '5º A' } })).dados.id;
+  await api(`/turmas/${turma}/importar`, { token: E, metodo: 'POST', corpo: { texto: '555000111;Lia Souza\n555000222;Caio Reis' } });
+  await api('/alunos', { token: E, metodo: 'POST', corpo: { nome: 'Sem Ra Ferreira', turma_id: turma } });
+  const alunos = (await api(`/alunos?turma_id=${turma}`, { token: E })).dados;
+  const lia = alunos.find((a) => /LIA/.test(a.nome));
+  await api(`/alunos/${lia.id}/atencao`, { token: E, metodo: 'PUT', corpo: { motivo: 'Acompanhar' } });
+  const tipo = (await api('/tipos', { token: E })).dados.find((t) => t.codigo === 'A1');
+  const occ = [];
+  for (const relato of ['Primeira ocorrência de teste.', 'Segunda ocorrência de teste.']) {
+    occ.push((await api('/ocorrencias', { token: E, metodo: 'POST', corpo: { tipo_id: tipo.id, data: '2026-11-10', hora: '09:00', local: 'Sala de aula',
+      turma_id: turma, relato, alunos: [{ id: lia.id, papel: 'autor' }] } })).dados);
+  }
+  await api(`/ocorrencias/${occ[0].id}/notas`, { token: E, metodo: 'POST', corpo: { texto: 'Família avisada.' } });
+  await api(`/ocorrencias/${occ[0].id}/chat`, { token: E, metodo: 'POST', corpo: { texto: 'Aluno na coordenação.' } });
+  await api('/busca-ativa', { token: E, metodo: 'POST', corpo: { aluno_id: lia.id, faltas: 5 } });
+
+  // Backup (como o navegador monta).
+  const info = (await api('/backup', { token: E })).dados;
+  const tabelas = {};
+  for (const t of info.tabelas) tabelas[t.nome] = (await api(`/backup/${t.nome}`, { token: E })).dados.linhas;
+  const texto = JSON.stringify({ sistema: 'SisRoe', formato: 1, escola: info.escola, tabelas });
+  const chamar = (token) => async (url, corpo) => {
+    const r = await api(url, { token, metodo: 'POST', corpo });
+    if (r.status !== 200) throw new Error(`${r.status} ${JSON.stringify(r.dados)}`);
+    return r.dados;
+  };
+
+  // Nada falta: a prévia não acrescenta nada.
+  const backup = prepararBackup(texto, 'escola-rest');
+  assert.equal((await restaurar(backup, { simular: true, chamar: chamar(E) })).novosTotal, 0);
+  // Só a própria escola e só a direção.
+  assert.throws(() => prepararBackup(texto, 'escola-rest-2'), /outra escola|própria escola/);
+  assert.equal((await api('/restaurar/turmas', { token: outra, metodo: 'POST', corpo: { codigo: 'escola-rest', linhas: [] } })).status, 400);
+  const coord = await criarUsuario(E, 'escola-rest', '81111111', 'coordenador');
+  assert.equal((await api('/restaurar/turmas', { token: coord, metodo: 'POST', corpo: { codigo: 'escola-rest', linhas: [] } })).status, 403);
+
+  // Perda de dados simulada: some uma ocorrência (com nota e chat), um aluno, a turma não; busca ativa some.
+  await db.run('DELETE FROM chat_mensagens WHERE escola_id = ?', [eid]);
+  await db.run('DELETE FROM ocorrencia_notas WHERE escola_id = ?', [eid]);
+  await db.run('DELETE FROM ocorrencia_alunos WHERE escola_id = ? AND ocorrencia_id = ?', [eid, occ[0].id]);
+  await db.run('DELETE FROM ocorrencias WHERE escola_id = ? AND id = ?', [eid, occ[0].id]);
+  await db.run('DELETE FROM busca_ativa_acoes WHERE escola_id = ?', [eid]);
+  await db.run('DELETE FROM busca_ativa WHERE escola_id = ?', [eid]);
+  const caio = alunos.find((a) => /CAIO/.test(a.nome));
+  await db.run('DELETE FROM alunos WHERE escola_id = ? AND id = ?', [eid, caio.id]);
+  // Depois da perda, alguém registrou uma ocorrência nova, que ocupou o número 2026/0001.
+  const nova = (await api('/ocorrencias', { token: E, metodo: 'POST', corpo: { tipo_id: tipo.id, data: '2026-11-11', hora: '08:00', local: 'Pátio',
+    relato: 'Ocorrência registrada depois da perda.', alunos: [{ id: lia.id }] } })).dados;
+  // (o sistema daria o nº 3; simulamos que ela ficou com o nº 1, que era da ocorrência perdida)
+  await db.run('UPDATE ocorrencias SET seq = 1 WHERE escola_id = ? AND id = ?', [eid, nova.id]);
+
+  const prev = await restaurar(backup, { simular: true, chamar: chamar(E) });
+  assert.equal(prev.etapas.alunos.novos, 1);
+  assert.equal(prev.etapas.ocorrencias.novos, 1);
+  assert.equal(prev.etapas.ocorrencias.renumeradas, 1);
+  assert.equal(prev.etapas.busca_ativa.novos, 1);
+  assert.equal(prev.etapas.turmas.novos, 0);
+  const real = await restaurar(backup, { simular: false, chamar: chamar(E) });
+  assert.equal(real.novosTotal, 3);
+  assert.equal(real.filhos.notas, 1);
+  assert.equal(real.filhos.chat, 1);
+  // Voltou tudo, sem mexer no que existia; a ocorrência voltou com o próximo número.
+  const lista = (await api('/ocorrencias', { token: E })).dados;
+  assert.equal(lista.length, 3);
+  const volta = lista.find((o) => o.id !== nova.id && o.id !== occ[1].id);
+  assert.equal(volta.numero.endsWith('/0003'), true);
+  const det = (await api(`/ocorrencias/${volta.id}`, { token: E })).dados;
+  assert.equal(det.relato, 'Primeira ocorrência de teste.');
+  assert.equal(det.notas.length, 1);
+  assert.equal(det.alunos[0].aluno_id, lia.id, 'estudante ligado ao aluno existente');
+  assert.equal((await api(`/ocorrencias/${volta.id}/chat`, { token: E })).dados.length, 1);
+  assert.equal((await api(`/ocorrencias/${nova.id}`, { token: E })).dados.relato, 'Ocorrência registrada depois da perda.', 'a nova não foi tocada');
+  assert.equal((await api(`/alunos?turma_id=${turma}`, { token: E })).dados.length, 3);
+  assert.equal((await api('/alunos-atencao', { token: E })).dados.length, 1, 'sinalização mantida');
+  assert.equal((await api('/busca-ativa?status=todos', { token: E })).dados.length, 1);
+  // Restaurar de novo não duplica nada.
+  assert.equal((await restaurar(backup, { simular: false, chamar: chamar(E) })).novosTotal, 0);
+  assert.equal((await api('/ocorrencias', { token: E })).dados.length, 3);
+  // Outra escola continua vazia.
+  assert.equal((await api('/ocorrencias', { token: outra })).dados.length, 0);
+});
