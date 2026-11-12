@@ -81,7 +81,8 @@ const BACKUP = {
   rota: '#/backup',
   titulo: 'Fazer backup dos dados',
   texto: 'Em "Backup", baixe uma cópia dos dados da escola em Excel (uma aba para cada tipo de dado) ou em JSON. Vale fazer ao fim de cada bimestre.\n'
-    + 'O arquivo tem dados pessoais de estudantes: guarde em local seguro e não compartilhe. Cada backup fica registrado na auditoria.',
+    + 'O arquivo tem dados pessoais de estudantes: guarde em local seguro e não compartilhe. Cada backup fica registrado na auditoria.\n'
+    + 'Vice e direção podem restaurar um backup JSON da escola na mesma tela: o sistema mostra uma prévia e só acrescenta o que estiver faltando, sem alterar nem apagar nada.',
 };
 
 const HISTORICO = {

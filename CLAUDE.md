@@ -65,5 +65,9 @@ Multi-school (multi-tenant) incident log. Express backend + vanilla JS SPA (ES m
 - Backup (gestão only, `#/backup`): `routes/backup.js` serves whitelisted tables (`TABELAS`) in pages of 500 without
   secrets (`usuarios` only for admin); the browser builds the .xlsx (`public/js/planilha.js`, dependency-free stored ZIP)
   and the .json. Photos/carômetro files are not included. Downloads are audited.
+- Restore (vice/diretor, same screen): `routes/restaurar.js` + `public/js/restauracao.js`. Insert-only, never updates or
+  deletes; matches turmas by nome, tipos by codigo, alunos by RA (or nome+turma), ocorrências by ano+criado_em+relato
+  (seq renumbered if taken), busca by aluno+criado_em. Children travel nested with the parent in one transaction, so a
+  re-run is idempotent. Backup must carry the school's own codigo. `db.colunas()` whitelists insertable columns.
 - Integrity rules: the original relato is never edited (use notas), gravidade only goes up, ocorrências are cancelled
   (with a reason), never deleted.

@@ -245,6 +245,9 @@ ou sem zeros à esquerda) são atualizados; com a opção marcada, quem saiu da 
 - **Backup em Excel e JSON** (menu **Backup**, só POC, coordenação, vice e direção): cópia dos dados da escola
   (turmas, alunos, ocorrências com estudantes, notas e conversas, afastamentos, busca ativa, tipos e, para vice e
   direção, a equipe). Senhas, fotos e arquivos do carômetro não entram. Cada backup fica na auditoria.
+- **Restaurar backup** (vice e direção, na tela Backup): envie o backup JSON da escola; o sistema mostra uma prévia
+  e **só acrescenta o que estiver faltando** — nada do que existe é alterado ou apagado. Pode ser repetido sem
+  duplicar. Equipe, senhas, fotos e carômetro não são restaurados.
 - **Guia ilustrado “Como registrar uma ocorrência”** (`#/guia`): passo a passo com imagens das telas (escola
   fictícia), exemplo de relato bom e ruim e dúvidas comuns. Abre pelo Tutorial e pela tela Nova ocorrência, e pode
   ser impresso. As imagens ficam em `public/img/guia` e são refeitas com `node ferramentas/capturas-guia.mjs`.

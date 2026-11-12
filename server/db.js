@@ -433,6 +433,19 @@ export async function auditar(escolaId, usuario, acao, detalhes = '') {
   );
 }
 
+/** Colunas reais de uma tabela (inclui as criadas pelas MIGRACOES). Usado na restauração do backup. */
+const cacheColunas = new Map();
+export async function colunas(tabela) {
+  if (!/^[a-z_]+$/.test(tabela)) throw new Error('Tabela inválida.');
+  if (!cacheColunas.has(tabela)) {
+    const lista = USE_PG
+      ? (await all('SELECT column_name AS nome FROM information_schema.columns WHERE table_name = ?', [tabela])).map((c) => c.nome)
+      : (await all(`PRAGMA table_info(${tabela})`)).map((c) => c.name);
+    cacheColunas.set(tabela, new Set(lista));
+  }
+  return cacheColunas.get(tabela);
+}
+
 export async function fechar() {
   if (pool) await pool.end();
   if (lite) lite.close();
