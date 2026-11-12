@@ -83,6 +83,6 @@ export async function renderTrocaObrigatoria(el) {
   ligarForm(el, async () => {
     estado.usuario.trocar_senha = false;
     await recarregarCadastros();
-    navegar('#/painel');
+    navegar(estado.usuario.tutorial_visto ? '#/painel' : '#/tutorial');
   });
 }

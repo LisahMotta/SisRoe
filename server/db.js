@@ -265,6 +265,8 @@ const MIGRACOES = [
   'ALTER TABLE alunos ADD COLUMN telefone2 TEXT',
   // Modelo da mensagem de WhatsApp da busca ativa (cada escola pode ajustar o texto).
   'ALTER TABLE escolas ADD COLUMN modelo_whatsapp TEXT',
+  // Tutorial por perfil: mostrado automaticamente no primeiro acesso.
+  'ALTER TABLE usuarios ADD COLUMN tutorial_visto INTEGER NOT NULL DEFAULT 0',
 ];
 
 // Converte "?" em "$1, $2…" para o PostgreSQL.

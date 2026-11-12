@@ -632,3 +632,28 @@ strong .contador { margin-left: 6px; vertical-align: 2px; }
   .chat-msg { max-width: 92%; }
   #popups { right: 50%; transform: translateX(50%); bottom: 12px; }
 }
+
+/* ─── Tutorial, equipe e cadastro em lote ───────────────────────────────── */
+.tutorial { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.tut-passo { display: flex; gap: 16px; align-items: flex-start; margin: 0; }
+.tut-num { width: 34px; height: 34px; border-radius: 50%; background: var(--primaria); color: #fff; font-weight: 700; display: grid; place-items: center; flex: none; }
+.tut-corpo { flex: 1; min-width: 0; }
+.tut-corpo h3 { margin: 4px 0 8px; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+.tut-corpo h3 .ico { color: var(--primaria); }
+.tut-corpo p { color: var(--texto-2); font-size: .925rem; margin-bottom: 6px; white-space: pre-line; }
+.tut-intro p { margin-bottom: 4px; }
+.tut-fim { justify-content: center; margin: 22px 0 8px; }
+.rotulo-inline { display: flex; align-items: center; gap: 8px; margin: 0; font-size: .85rem; }
+.rotulo-inline select { margin: 0; width: auto; min-width: 220px; }
+.destaque-lote { background: var(--primaria-clara); border-color: var(--primaria-borda); }
+.destaque-lote .cab-tela { margin: 0; }
+.destaque-lote h2 { margin-bottom: 4px; }
+.destaque-lote .ajuda { margin: 0; }
+.senha-lote { margin-top: 14px; }
+.recortes { display: grid; gap: 0; margin-top: 12px; }
+.recorte { border: 1px dashed #94a3b8; padding: 10px 12px; margin-top: -1px; font-size: 10.5pt; line-height: 1.7; break-inside: avoid; }
+@media (max-width: 760px) {
+  .tut-passo { gap: 12px; }
+  .rotulo-inline { flex-wrap: wrap; }
+  .rotulo-inline select { min-width: 0; width: 100%; }
+}

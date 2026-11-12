@@ -35,7 +35,7 @@ atualizar o catálogo não altera registros antigos. Para gerar o catálogo de u
 | Quem | O que pode fazer |
 |---|---|
 | Professor(a), Agente de Organização Escolar | Registrar ocorrências, ver as que registrou, conversar com a gestão no chat da ocorrência, ver o carômetro |
-| POC, Coordenação | Tudo acima + ver todas as ocorrências, receber os avisos de ocorrência nova, fazer o acompanhamento, histórico dos alunos, busca ativa, fotos do carômetro, exportar planilha |
+| POC, Coordenação | Tudo acima + ver todas as ocorrências, receber os avisos de ocorrência nova, fazer o acompanhamento, histórico dos alunos, busca ativa, fotos do carômetro, exportar planilha e **gerar nova senha para professores e agentes** |
 | Vice-direção, Direção | Tudo acima + usuários, turmas, importação da SED, tipos, cancelar registros e auditoria |
 
 - Intervenções, níveis de resposta e afastamento preventivo conforme a **Resolução SEDUC nº 68/2026** (detalhes abaixo).
@@ -213,13 +213,29 @@ de nascimento, responsável e telefone, aceita os separadores `;` `,` `|` e tabu
 que a SED exporta. Se a planilha estiver em Excel (.xlsx), salve como CSV antes. Alunos que já existem (mesmo RA, com
 ou sem zeros à esquerda) são atualizados; com a opção marcada, quem saiu da lista é desativado, sem perder o histórico.
 
+## Usuários, senhas e tutorial
+
+- **Usuário = RG ou CIN.** Cada servidor entra com o código da escola, o número do RG ou da CIN (com ou sem pontos:
+  o sistema guarda só os números) e a senha.
+- **Cadastro da equipe de uma vez:** em **Administração → Usuários → Importar lista**, cole as colunas da planilha
+  (Nome, RG ou CIN e, se quiser, Cargo) ou escolha um arquivo CSV. Confira a prévia, escolha senha provisória
+  diferente para cada pessoa ou uma comum para todos, e **imprima a lista de acessos** para entregar.
+- **Troca obrigatória:** toda senha provisória (do cadastro ou de uma nova senha) obriga a pessoa a criar a própria
+  senha no primeiro acesso; antes disso, nada mais funciona.
+- **Esqueceu a senha?** O sistema orienta a procurar a **direção ou a coordenação**. Em **Equipe e senhas**,
+  coordenação e POC geram nova senha para professores e agentes; direção e vice, para qualquer usuário.
+  O SisRoe não envia senha por e-mail ou mensagem.
+- **Tutorial por perfil:** no primeiro acesso, cada pessoa vê o passo a passo do seu perfil (professor, agente, POC,
+  coordenação, vice, direção). Depois ele fica no menu **Tutorial**, onde a direção também pode ver e **imprimir**
+  o tutorial de cada perfil para distribuir.
+
 ## Primeiro uso numa escola
 
 1. Cadastre a escola e anote o **código de acesso** (ex.: `ee-exemplo`). Todos os servidores usam esse código no login.
 2. **Administração → Importar da SED**: envie as listas CSV das turmas (ou crie as turmas e cole as listas em
    *Turmas e alunos*). Depois, a equipe gestora pode colocar as fotos em **Carômetro**.
-3. **Administração → Usuários**: cadastre cada servidor. O sistema gera uma **senha provisória**, e no primeiro acesso
-   a pessoa cria a própria senha. Se alguém esquecer a senha, use **"Nova senha"**.
+3. **Administração → Usuários → Importar lista**: cadastre a equipe com nome e RG/CIN e imprima a lista de acessos.
+   No primeiro acesso cada pessoa cria a própria senha e vê o tutorial do seu perfil.
 4. **Administração → Tipos de ocorrência**: as 50 situações do Protocolo 179 já vêm prontas; acrescente indisciplinas próprias da escola, se quiser.
 
 ## Estrutura

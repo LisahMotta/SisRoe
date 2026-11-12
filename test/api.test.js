@@ -404,3 +404,45 @@ test('PDF da ocorrência', async () => {
   assert.ok(buf.length > 2000);
   assert.equal((await fetch(`${base}/ocorrencias/${id}/pdf`, { headers: { Authorization: `Bearer ${B}` } })).status, 404);
 });
+
+test('Usuários: lista com RG/CIN, senha provisória com troca obrigatória e nova senha pela coordenação/POC', async () => {
+  const lista = [
+    { nome: 'Paula Reis', documento: '12.345.678-X' },
+    { nome: 'Rui Alves', documento: '123.456.789-09', perfil: 'agente' },
+    { nome: 'Sem Doc', documento: '' },
+    { nome: 'Paula Reis 2', documento: '12345678x' },
+  ];
+  assert.equal((await api('/usuarios/lote', { token: profA, metodo: 'POST', corpo: { usuarios: lista } })).status, 403);
+  assert.equal((await api('/usuarios/lote', { token: A, metodo: 'POST', corpo: { usuarios: lista, senhaComum: 'fraca' } })).status, 400);
+  const r = (await api('/usuarios/lote', { token: A, metodo: 'POST', corpo: { usuarios: lista, senhaComum: 'Escola2026' } })).dados;
+  assert.equal(r.criados.length, 2);
+  assert.equal(r.ignorados.length, 2, 'sem documento e documento repetido');
+  assert.deepEqual(r.criados.map((c) => c.login), ['12345678x', '12345678909']);
+  assert.equal(r.criados[1].perfil, 'agente');
+  // Entra com o RG digitado com pontuação; a troca de senha é obrigatória.
+  const l = (await api('/login', { metodo: 'POST', corpo: { codigo: 'escola-a', login: '12.345.678-X', senha: 'Escola2026' } })).dados;
+  assert.equal(l.usuario.trocar_senha, true);
+  assert.equal((await api('/ocorrencias', { token: l.token })).status, 403);
+  await api('/minha-senha', { token: l.token, metodo: 'POST', corpo: { atual: 'Escola2026', nova: 'Paula2026x' } });
+  assert.equal((await api('/eu', { token: l.token })).dados.usuario.tutorial_visto, false);
+  await api('/tutorial-visto', { token: l.token, metodo: 'POST' });
+  assert.equal((await api('/eu', { token: l.token })).dados.usuario.tutorial_visto, true);
+  // A mensagem de erro de login orienta a procurar a direção/coordenação.
+  assert.match((await api('/login', { metodo: 'POST', corpo: { codigo: 'escola-a', login: '12345678x', senha: 'errada' } })).dados.erro, /direção ou a coordenação/);
+
+  // Coordenação gera nova senha para professor/agente, mas não para a direção.
+  const coord = await criarUsuario(A, 'escola-a', 'coord2', 'coordenador');
+  const poc = await criarUsuario(A, 'escola-a', 'poc1', 'poc');
+  const equipe = (await api('/equipe', { token: coord })).dados;
+  assert.ok(equipe.every((u) => ['professor', 'agente'].includes(u.perfil)));
+  const paula = equipe.find((u) => u.login === '12345678x');
+  const nova = await api(`/usuarios/${paula.id}/resetar-senha`, { token: poc, metodo: 'POST' });
+  assert.equal(nova.status, 200);
+  const l2 = (await api('/login', { metodo: 'POST', corpo: { codigo: 'escola-a', login: '12345678x', senha: nova.dados.senhaProvisoria } })).dados;
+  assert.equal(l2.usuario.trocar_senha, true, 'nova senha provisória exige troca');
+  const diretora = (await api('/usuarios', { token: A })).dados.find((u) => u.login === 'diretora');
+  assert.equal((await api(`/usuarios/${diretora.id}/resetar-senha`, { token: coord, metodo: 'POST' })).status, 403);
+  assert.equal((await api(`/usuarios/${paula.id}/resetar-senha`, { token: profA, metodo: 'POST' })).status, 403);
+  assert.equal((await api(`/usuarios/${paula.id}/resetar-senha`, { token: B, metodo: 'POST' })).status, 404);
+  assert.equal((await api('/usuarios', { token: coord })).status, 403, 'coordenação não administra usuários');
+});

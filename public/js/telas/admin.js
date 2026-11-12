@@ -1,10 +1,10 @@
 // telas/admin.js — administração da escola (direção e vice-direção).
 // Abas: primeiros passos, escola, usuários, turmas e alunos, tipos, auditoria.
 import { api } from '../api.js';
-import { $, $$, esc, lerForm, avisar, avisarErro, comCarregando, abrirModal, fecharModal, dataHoraBR, seloGravidade, aplicarIcones } from '../ui.js';
+import { $, $$, esc, lerForm, avisar, avisarErro, comCarregando, abrirModal, fecharModal, dataHoraBR, seloGravidade, aplicarIcones, imprimirAvulso } from '../ui.js';
 import { estado, ehAdmin, recarregarCadastros } from '../app.js';
 import { PERFIS, CATEGORIAS, GRAVIDADES, MACROS } from '../catalogo.js';
-import { lerArquivoSED } from '../sed.js';
+import { lerArquivoSED, lerListaEquipe, lerArquivoTexto } from '../sed.js';
 import { MODELO_PADRAO, CAMPOS_MODELO } from '../whatsapp.js';
 
 const ABAS = {
@@ -37,7 +37,7 @@ export async function render(el, [aba = 'primeiros-passos', ...resto]) {
 /** Mostra a senha provisória para a direção repassar à pessoa. */
 function mostrarSenha(nome, login, senha) {
   abrirModal('Senha provisória', `
-    <p>Repasse estes dados a <b>${esc(nome)}</b>. No primeiro acesso, o sistema vai pedir que a pessoa crie uma senha própria.</p>
+    <p>Entregue estes dados pessoalmente a <b>${esc(nome)}</b>. No primeiro acesso, o sistema obriga a criar uma senha própria.</p>
     <div class="senha-caixa">
       <div>Código da escola: <b>${esc(estado.escola.codigo)}</b></div>
       <div>Usuário: <b>${esc(login)}</b></div>
@@ -110,11 +110,17 @@ async function usuarios(el) {
   const box = novoContainer(el);
   const lista = await api('/usuarios');
   box.innerHTML = `
+    <section class="cartao destaque-lote">
+      <div class="cab-tela"><div><h2>Cadastrar a equipe de uma vez</h2>
+        <p class="ajuda">Envie ou cole a lista com o <b>nome</b> e o <b>RG ou CIN</b> de cada professor. O RG/CIN vira o usuário de acesso.</p></div>
+        <button class="btn btn-primario" id="btn-lote" type="button" data-icone="baixar">Importar lista</button></div>
+    </section>
     <form id="form-usuario" class="cartao">
       <h2>Novo usuário</h2>
       <div class="grade-3">
         <label>Nome completo * <input name="nome" required maxlength="120"></label>
-        <label>Usuário (login) * <input name="login" required maxlength="30" autocapitalize="none" placeholder="ex.: maria.silva"></label>
+        <label>Usuário: RG ou CIN * <input name="login" required maxlength="30" autocapitalize="none" inputmode="text" placeholder="ex.: 12.345.678-X">
+          <small>Pode digitar com ou sem pontos; o sistema guarda só os números.</small></label>
         <label>Perfil *
           <select name="perfil">${Object.entries(PERFIS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
       </div>
@@ -135,6 +141,7 @@ async function usuarios(el) {
           </td></tr>`).join('')}</tbody></table></div>
     </section>`;
 
+  $('#btn-lote', box).addEventListener('click', () => modalLote(el));
   $('#form-usuario', box).addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const d = lerForm(ev.target);
@@ -171,6 +178,91 @@ async function usuarios(el) {
       } catch (err) { avisarErro(err); }
     }
   }, { once: false });
+}
+
+
+// Mesmo critério do servidor: documento (RG/CIN) vira só números (e o X final).
+function loginDoDocumento(d) {
+  const t = String(d || '').toLowerCase().replace(/\s+/g, '');
+  return /^[\d.\-/]+x?$/.test(t) ? t.replace(/[^\dx]/g, '') : t.replace(/[^a-z0-9-]/g, '');
+}
+
+/** Cadastro em lote: lista com nome + RG/CIN (arquivo CSV ou colado da planilha). */
+function modalLote(el) {
+  let pessoas = [];
+  const m = abrirModal('Importar lista da equipe', `
+    <p class="ajuda">Formato: uma pessoa por linha, com <b>Nome</b> e <b>RG ou CIN</b> (e, se quiser, <b>Cargo</b>: professor, agente,
+      coordenador, POC, vice ou diretor). Pode copiar as colunas do Excel/Planilhas Google e colar aqui, ou escolher um arquivo CSV.</p>
+    <label>Colar a lista
+      <textarea id="lote-texto" rows="6" placeholder="Nome;RG ou CIN;Cargo&#10;MARIA DA SILVA;12.345.678-X;Professora&#10;JOÃO SOUZA;123.456.789-09;Agente"></textarea></label>
+    <label class="arquivo">ou escolher arquivo CSV <input type="file" id="lote-arquivo" accept=".csv,.txt,text/csv"></label>
+    <div id="lote-previa"></div>`);
+  const previa = $('#lote-previa', m);
+
+  const desenhar = (texto) => {
+    const r = lerListaEquipe(texto);
+    if (r.erro) { previa.innerHTML = texto.trim() ? `<p class="texto-alerta">${esc(r.erro)}</p>` : ''; pessoas = []; return; }
+    pessoas = r.pessoas;
+    previa.innerHTML = `
+      <p class="rotulo">${pessoas.length} pessoa(s) — confira o perfil de cada uma:</p>
+      <div class="tabela-rolagem"><table class="tabela">
+        <thead><tr><th>Nome</th><th>Usuário (RG/CIN)</th><th>Perfil</th></tr></thead>
+        <tbody>${pessoas.map((p, i) => {
+          const login = loginDoDocumento(p.documento);
+          return `<tr><td>${esc(p.nome) || '<span class="texto-alerta">sem nome</span>'}</td>
+            <td>${login.length >= 5 ? esc(login) : '<span class="texto-alerta">sem documento</span>'}</td>
+            <td><select data-perfil-lote="${i}" aria-label="Perfil de ${esc(p.nome)}">${Object.entries(PERFIS).map(([k, v]) => `<option value="${k}" ${k === p.perfil ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></td></tr>`;
+        }).join('')}</tbody></table></div>
+      <fieldset class="senha-lote">
+        <legend>Senha provisória</legend>
+        <label class="check"><input type="radio" name="tipo-senha" value="aleatoria" checked> Gerar uma senha diferente para cada pessoa (mais seguro)</label>
+        <label class="check"><input type="radio" name="tipo-senha" value="comum"> Usar a mesma senha provisória para todos</label>
+        <label id="lote-senha-comum" hidden>Senha provisória comum <input id="lote-senha" maxlength="40" autocomplete="off" placeholder="ex.: Escola2026">
+          <small>Pelo menos 8 caracteres, com letras e números. Em qualquer caso, cada pessoa é obrigada a criar a própria senha no primeiro acesso.</small></label>
+      </fieldset>
+      <div class="acoes"><button class="btn btn-primario" id="lote-importar">Cadastrar ${pessoas.length} pessoa(s)</button>
+        <button class="btn" data-fechar>Cancelar</button></div>`;
+    $$('input[name=tipo-senha]', previa).forEach((r2) => r2.addEventListener('change', () => {
+      $('#lote-senha-comum', previa).hidden = $('input[name=tipo-senha]:checked', previa).value !== 'comum';
+    }));
+    $$('[data-perfil-lote]', previa).forEach((sel) => sel.addEventListener('change', () => { pessoas[Number(sel.dataset.perfilLote)].perfil = sel.value; }));
+    $('#lote-importar', previa).addEventListener('click', (ev) => comCarregando(ev.currentTarget, async () => {
+      const comum = $('input[name=tipo-senha]:checked', previa).value === 'comum' ? $('#lote-senha', previa).value : '';
+      if ($('input[name=tipo-senha]:checked', previa).value === 'comum' && !comum) return avisar('Digite a senha provisória comum.', 'erro');
+      try {
+        const r2 = await api('/usuarios/lote', { metodo: 'POST', corpo: { usuarios: pessoas, senhaComum: comum } });
+        fecharModal();
+        await usuarios(el);
+        mostrarResultadoLote(r2);
+      } catch (e) { avisarErro(e); }
+    }));
+  };
+  $('#lote-texto', m).addEventListener('input', (e) => desenhar(e.target.value));
+  $('#lote-arquivo', m).addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try { const t = await lerArquivoTexto(f); $('#lote-texto', m).value = t; desenhar(t); } catch (err) { avisarErro(err); }
+  });
+}
+
+/** Resultado do cadastro em lote, com a lista de acessos para imprimir e entregar. */
+function mostrarResultadoLote({ criados, ignorados }) {
+  const e = estado.escola;
+  const imprimir = () => imprimirAvulso(`
+    <header class="doc-cab"><div><div class="doc-escola">${esc(e.nome)}</div><div class="doc-sub">SisRoe · Acesso ao sistema</div></div>
+      <div class="doc-num"><small>Código da escola</small><b>${esc(e.codigo)}</b></div></header>
+    <h1 class="doc-titulo">Acessos ao SisRoe</h1>
+    <p class="centro"><small>Endereço: ${esc(location.origin)} · Entregue cada linha pessoalmente e destrua esta folha depois.
+      No primeiro acesso, cada pessoa cria a própria senha. Esqueceu a senha? Procure a direção ou a coordenação.</small></p>
+    <div class="recortes">${criados.map((c) => `<div class="recorte"><b>${esc(c.nome)}</b> · ${esc(PERFIS[c.perfil])}<br>
+      Código da escola: <b>${esc(e.codigo)}</b> · Usuário: <b>${esc(c.login)}</b> · Senha provisória: <b class="senha">${esc(c.senhaProvisoria)}</b></div>`).join('')}</div>`);
+  const m = abrirModal('Equipe cadastrada', `
+    <p><b>${criados.length}</b> pessoa(s) cadastrada(s).${ignorados.length ? ` <b>${ignorados.length}</b> linha(s) não cadastrada(s):` : ''}</p>
+    ${ignorados.length ? `<ul class="ajuda">${ignorados.map((i) => `<li>${esc(i.nome)} — ${esc(i.motivo)}</li>`).join('')}</ul>` : ''}
+    ${criados.length ? `<p class="ajuda">Imprima a lista de acessos agora: por segurança, as senhas provisórias não serão mostradas de novo.</p>
+      <div class="acoes"><button class="btn btn-primario" id="lote-imprimir" data-icone="imprimir">Imprimir lista de acessos</button>
+      <button class="btn" data-fechar>Fechar</button></div>` : '<div class="acoes"><button class="btn" data-fechar>Fechar</button></div>'}`);
+  $('#lote-imprimir', m)?.addEventListener('click', imprimir);
 }
 
 // ─── Turmas e alunos ─────────────────────────────────────────────────────────

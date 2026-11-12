@@ -95,3 +95,52 @@ export async function lerArquivoSED(arquivo) {
 }
 
 export { lerTexto as _lerTexto };
+
+// ─── Lista da equipe (nome + RG ou CIN) ──────────────────────────────────────
+const COL_EQUIPE = {
+  nome: ['nome', 'nome completo', 'professor', 'professora', 'servidor', 'nome do servidor', 'nome do professor', 'docente'],
+  documento: ['rg', 'cin', 'rg ou cin', 'rg cin', 'cpf', 'documento', 'doc', 'identidade', 'numero do rg', 'n rg', 'cin cpf'],
+  perfil: ['perfil', 'cargo', 'funcao', 'funcao cargo'],
+};
+// Palavras da planilha → perfil do SisRoe.
+const PERFIL_TEXTO = [
+  [/coorden/, 'coordenador'], [/\bpoc\b|orientador de conviv/, 'poc'], [/vice/, 'vice'],
+  [/diretor|direcao/, 'diretor'], [/agente|aoe|inspetor|organizacao escolar/, 'agente'], [/prof/, 'professor'],
+];
+export function perfilDoTexto(t) {
+  const n = norm(t);
+  return n ? (PERFIL_TEXTO.find(([re]) => re.test(n))?.[1] || '') : '';
+}
+
+/**
+ * Lê a lista da equipe colada da planilha ou de um arquivo CSV.
+ * Com cabeçalho: colunas Nome e RG/CIN (e Perfil/Cargo, opcional), em qualquer ordem.
+ * Sem cabeçalho: 1ª coluna = nome, 2ª = RG ou CIN, 3ª (opcional) = perfil.
+ */
+export function lerListaEquipe(texto) {
+  const linhas = String(texto || '').replace(/^﻿/, '').split(/\r\n|\n|\r/).filter((l) => l.trim());
+  if (!linhas.length) return { erro: 'A lista está vazia.' };
+  const sep = separador(linhas[0]);
+  const cab = dividir(linhas[0], sep).map(norm);
+  const achar = (nomes) => { for (const n of nomes) { const i = cab.indexOf(n); if (i >= 0) return i; } return -1; };
+  let iNome = achar(COL_EQUIPE.nome), iDoc = achar(COL_EQUIPE.documento), iPerfil = achar(COL_EQUIPE.perfil);
+  let inicio = 1;
+  if (iNome < 0 || iDoc < 0) { iNome = 0; iDoc = 1; iPerfil = 2; inicio = 0; } // sem cabeçalho
+  const pessoas = [];
+  for (const l of linhas.slice(inicio)) {
+    const c = dividir(l, sep);
+    const nome = (c[iNome] || '').trim();
+    const documento = (c[iDoc] || '').trim();
+    if (!nome && !documento) continue;
+    pessoas.push({ nome, documento, perfil: perfilDoTexto(c[iPerfil]) || 'professor' });
+  }
+  if (!pessoas.length) return { erro: 'Não encontrei nomes na lista.' };
+  return { pessoas };
+}
+
+/** Lê um arquivo de texto (CSV/TXT) em UTF-8 ou Windows-1252. */
+export async function lerArquivoTexto(arquivo) {
+  if (/\.xlsx?$/i.test(arquivo.name)) throw new Error('Arquivo do Excel (.xlsx): salve como CSV ou copie as colunas e cole na caixa de texto.');
+  const buf = await arquivo.arrayBuffer();
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch { return new TextDecoder('windows-1252').decode(buf); }
+}

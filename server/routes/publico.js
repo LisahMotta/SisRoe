@@ -23,6 +23,17 @@ const limiteCadastro = rateLimit({
 
 export const normalizarCodigo = (s) => txt(s, 30).toLowerCase().replace(/[^a-z0-9-]/g, '');
 
+/**
+ * Login do usuário. Quando é um documento (RG ou CIN/CPF), fica só com os números
+ * (e o X final de alguns RGs): "12.345.678-X" e "12345678x" viram o mesmo login.
+ * Outros logins seguem a regra de antes (letras, números e hífen).
+ */
+export function normalizarLogin(s) {
+  const t = txt(s, 40).toLowerCase().replace(/\s+/g, '');
+  if (/^[\d.\-\/]+x?$/.test(t) && /\d{5,}/.test(t.replace(/\D/g, ''))) return t.replace(/[^\dx]/g, '').slice(0, 30);
+  return normalizarCodigo(t);
+}
+
 // Informa ao navegador se o cadastro exige chave de convite.
 r.get('/config', (req, res) => {
   res.json({ cadastroExigeChave: !!process.env.CADASTRO_CHAVE });
@@ -40,7 +51,7 @@ r.post('/escolas', limiteCadastro, rota(async (req, res) => {
   const codigo = normalizarCodigo(e.codigo);
   if (codigo.length < 3) throw new ErroHttp(400, 'O código da escola precisa ter ao menos 3 letras ou números (sem espaços).');
   const adminNome = obrigatorio(a.nome, 'seu nome', 120);
-  const login = normalizarCodigo(a.login);
+  const login = normalizarLogin(a.login);
   if (login.length < 3) throw new ErroHttp(400, 'O usuário precisa ter ao menos 3 letras ou números (sem espaços).');
   if (!senhaForte(a.senha)) throw new ErroHttp(400, MSG_SENHA);
   const perfil = a.perfil === 'vice' ? 'vice' : 'diretor';
@@ -70,9 +81,9 @@ r.post('/escolas', limiteCadastro, rota(async (req, res) => {
 r.post('/login', limiteLogin, rota(async (req, res) => {
   const b = req.body || {};
   const codigo = normalizarCodigo(b.codigo);
-  const login = normalizarCodigo(b.login);
+  const login = normalizarLogin(b.login);
   const senha = typeof b.senha === 'string' ? b.senha : '';
-  const falha = () => { throw new ErroHttp(401, 'Código da escola, usuário ou senha incorretos.'); };
+  const falha = () => { throw new ErroHttp(401, 'Código da escola, usuário ou senha incorretos. Se esqueceu a senha, procure a direção ou a coordenação da escola.'); };
 
   const escola = await db.one('SELECT id, nome FROM escolas WHERE codigo = ?', [codigo]);
   if (!escola) falha();

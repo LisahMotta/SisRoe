@@ -35,7 +35,7 @@ export async function autenticar(req, res, next) {
     return res.status(401).json({ erro: 'Sessão expirada. Faça login novamente.' });
   }
   const u = await db.one(
-    'SELECT id, escola_id, nome, login, perfil, ativo, trocar_senha FROM usuarios WHERE id = ? AND escola_id = ?',
+    'SELECT id, escola_id, nome, login, perfil, ativo, trocar_senha, tutorial_visto FROM usuarios WHERE id = ? AND escola_id = ?',
     [dados.uid, dados.eid]
   );
   if (!u || !u.ativo) return res.status(401).json({ erro: 'Usuário inativo ou inexistente.' });
