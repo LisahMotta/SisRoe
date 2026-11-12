@@ -105,7 +105,8 @@ const COL_EQUIPE = {
 // Palavras da planilha → perfil do SisRoe.
 const PERFIL_TEXTO = [
   [/coorden/, 'coordenador'], [/\bpoc\b|orientador de conviv/, 'poc'], [/vice/, 'vice'],
-  [/diretor|direcao/, 'diretor'], [/agente|aoe|inspetor|organizacao escolar/, 'agente'], [/prof/, 'professor'],
+  [/diretor|direcao/, 'diretor'], [/gerente|\bgoe\b/, 'gerente'], [/secretari/, 'secretaria'],
+  [/agente|aoe|inspetor|organizacao escolar/, 'agente'], [/prof/, 'professor'],
 ];
 export function perfilDoTexto(t) {
   const n = norm(t);

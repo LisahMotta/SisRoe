@@ -66,7 +66,7 @@ async function primeirosPassos(el) {
       ${item(!!estado.escola.municipio, 'Conferir os dados da escola (aparecem no cabeçalho dos documentos impressos)', '#/admin/escola')}
       ${item(estado.turmas.length > 0, 'Cadastrar as turmas', '#/admin/turmas')}
       ${item(temAlunos, 'Importar os alunos: envie as listas CSV exportadas da SED (cria as turmas sozinho)', '#/admin/sed')}
-      ${item(usuarios.length > 1, 'Cadastrar professores, agentes, POC, coordenação e vice-direção', '#/admin/usuarios')}
+      ${item(usuarios.length > 1, 'Cadastrar professores, agentes, gerente de organização escolar, secretaria, POC, coordenação e vice-direção', '#/admin/usuarios')}
       ${item(false, 'Conhecer os tipos de ocorrência: as 50 situações do Protocolo 179 (3ª versão) e as indisciplinas do dia a dia', '#/admin/tipos')}
     </ol>
     <p class="ajuda">Código de acesso da escola: <b>${esc(estado.escola.codigo)}</b>. Todos os servidores usam esse código para entrar.</p>
@@ -192,7 +192,7 @@ function modalLote(el) {
   let pessoas = [];
   const m = abrirModal('Importar lista da equipe', `
     <p class="ajuda">Formato: uma pessoa por linha, com <b>Nome</b> e <b>RG ou CIN</b> (e, se quiser, <b>Cargo</b>: professor, agente,
-      coordenador, POC, vice ou diretor). Pode copiar as colunas do Excel/Planilhas Google e colar aqui, ou escolher um arquivo CSV.</p>
+      gerente de organização escolar, secretário, coordenador, POC, vice ou diretor). Pode copiar as colunas do Excel/Planilhas Google e colar aqui, ou escolher um arquivo CSV.</p>
     <label>Colar a lista
       <textarea id="lote-texto" rows="6" placeholder="Nome;RG ou CIN;Cargo&#10;MARIA DA SILVA;12.345.678-X;Professora&#10;JOÃO SOUZA;123.456.789-09;Agente"></textarea></label>
     <label class="arquivo">ou escolher arquivo CSV <input type="file" id="lote-arquivo" accept=".csv,.txt,text/csv"></label>

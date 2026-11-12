@@ -2,7 +2,7 @@
 //
 // Permissões:
 //  • Todos os perfis registram ocorrências.
-//  • Professor e agente veem apenas as que eles mesmos registraram.
+//  • Professor, agente, gerente de organização escolar e secretário(a) veem apenas as que registraram.
 //  • Equipe gestora (POC, coordenação, vice, direção) vê todas da escola,
 //    faz o acompanhamento (protocolo, família, status) e vê o histórico do aluno.
 //  • O relato original não pode ser editado depois de registrado (valor de

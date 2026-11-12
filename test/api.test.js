@@ -446,3 +446,38 @@ test('Usuários: lista com RG/CIN, senha provisória com troca obrigatória e no
   assert.equal((await api(`/usuarios/${paula.id}/resetar-senha`, { token: B, metodo: 'POST' })).status, 404);
   assert.equal((await api('/usuarios', { token: coord })).status, 403, 'coordenação não administra usuários');
 });
+
+test('Perfis Gerente de Organização Escolar e Secretário(a) de Escola', async () => {
+  const r = (await api('/usuarios/lote', { token: A, metodo: 'POST', corpo: { senhaComum: 'Escola2026', usuarios: [
+    { nome: 'Gilda Gerente', documento: '55.666.777-8', perfil: 'gerente' },
+    { nome: 'Sergio Secretario', documento: '66.777.888-9', perfil: 'secretaria' },
+  ] } })).dados;
+  assert.deepEqual(r.criados.map((c) => c.perfil), ['gerente', 'secretaria']);
+  const entrar = async (login) => {
+    const l = (await api('/login', { metodo: 'POST', corpo: { codigo: 'escola-a', login, senha: 'Escola2026' } })).dados;
+    await api('/minha-senha', { token: l.token, metodo: 'POST', corpo: { atual: 'Escola2026', nova: 'Nova2026x' } });
+    return l.token;
+  };
+  const goe = await entrar('556667778');
+  const sec = await entrar('667778889');
+  // Registram ocorrências e veem só as próprias (como professor e agente).
+  const tipo = (await api('/tipos', { token: goe })).dados.find((t) => t.codigo === 'A4');
+  const occ = await api('/ocorrencias', { token: goe, metodo: 'POST', corpo: {
+    tipo_id: tipo.id, data: '2026-11-11', hora: '10:00', local: 'Pátio', relato: 'Discussão entre estudantes durante o intervalo.', alunos: [{ nome: 'Aluno X' }] } });
+  assert.equal(occ.status, 201);
+  assert.equal((await api('/ocorrencias', { token: goe })).dados.length, 1);
+  assert.equal((await api('/ocorrencias', { token: sec })).dados.length, 0);
+  assert.equal((await api(`/ocorrencias/${occ.dados.id}`, { token: sec })).status, 404);
+  // Não têm acesso às áreas da gestão.
+  assert.equal((await api('/busca-ativa', { token: sec })).status, 403);
+  assert.equal((await api('/equipe', { token: goe })).status, 403);
+  assert.equal((await api('/usuarios', { token: sec })).status, 403);
+  // Coordenação/POC podem gerar nova senha para eles.
+  const coord = await criarUsuario(A, 'escola-a', 'coord3', 'coordenador');
+  const equipe = (await api('/equipe', { token: coord })).dados;
+  for (const login of ['556667778', '667778889']) {
+    const u = equipe.find((x) => x.login === login);
+    assert.ok(u, `aparece na Equipe: ${login}`);
+    assert.equal((await api(`/usuarios/${u.id}/resetar-senha`, { token: coord, metodo: 'POST' })).status, 200);
+  }
+});

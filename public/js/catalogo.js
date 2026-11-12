@@ -63,6 +63,8 @@ export const STATUS = {
 export const PERFIS = {
   professor: 'Professor(a)',
   agente: 'Agente de Organização Escolar',
+  gerente: 'Gerente de Organização Escolar',
+  secretaria: 'Secretário(a) de Escola',
   poc: 'P.O.C. (Prof. Orientador de Convivência)',
   coordenador: 'Coordenador(a) Pedagógico(a)',
   vice: 'Vice-Diretor(a)',

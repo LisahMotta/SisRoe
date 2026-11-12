@@ -111,8 +111,8 @@ r.put('/usuarios/:id', exigeAdmin, rota(async (req, res) => {
 
 // Quem pode gerar nova senha provisória:
 //  • direção e vice-direção: qualquer usuário da escola;
-//  • coordenação e POC: professores e agentes de organização escolar.
-export const PERFIS_SENHA_PELA_GESTAO = ['professor', 'agente'];
+//  • coordenação e POC: professores, agentes e gerente de organização escolar e secretário(a) de escola.
+export const PERFIS_SENHA_PELA_GESTAO = ['professor', 'agente', 'gerente', 'secretaria'];
 
 r.post('/usuarios/:id/resetar-senha', exigeGestao, rota(async (req, res) => {
   const eid = req.usuario.escola_id;
@@ -120,7 +120,7 @@ r.post('/usuarios/:id/resetar-senha', exigeGestao, rota(async (req, res) => {
   const alvo = await db.one('SELECT id, perfil FROM usuarios WHERE id = ? AND escola_id = ?', [id, eid]);
   if (!alvo) throw new ErroHttp(404, 'Usuário não encontrado.');
   if (!ehAdmin(req.usuario) && !PERFIS_SENHA_PELA_GESTAO.includes(alvo.perfil)) {
-    throw new ErroHttp(403, 'Coordenação e POC podem gerar nova senha apenas para professores e agentes. Para outros perfis, procure a direção.');
+    throw new ErroHttp(403, 'Coordenação e POC podem gerar nova senha para professores, agentes, gerente de organização escolar e secretário(a). Para outros perfis, procure a direção.');
   }
   if (id === req.usuario.id) throw new ErroHttp(400, 'Para trocar a sua própria senha, use "Minha conta".');
   const provisoria = senhaProvisoria();
@@ -130,7 +130,7 @@ r.post('/usuarios/:id/resetar-senha', exigeGestao, rota(async (req, res) => {
   res.json({ senhaProvisoria: provisoria });
 }));
 
-// Equipe (para coordenação e POC gerarem nova senha de professores/agentes).
+// Equipe (para coordenação e POC gerarem nova senha de professores, agentes, GOE e secretaria).
 r.get('/equipe', exigeGestao, rota(async (req, res) => {
   const todos = ehAdmin(req.usuario);
   res.json(await db.all(
