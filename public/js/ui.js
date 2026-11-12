@@ -115,7 +115,11 @@ export function imprimirAvulso(html) {
     window.removeEventListener('afterprint', limpar);
   };
   window.addEventListener('afterprint', limpar);
-  window.print();
+  // Espera as imagens (ex.: guia ilustrado) carregarem; senão saem em branco no papel.
+  const imagens = [...box.querySelectorAll('img')].filter((i) => !i.complete);
+  if (!imagens.length) return window.print();
+  Promise.all(imagens.map((i) => new Promise((ok) => { i.onload = ok; i.onerror = ok; })))
+    .then(() => window.print());
 }
 
 /** Desativa o botão enquanto a ação roda (evita clique duplo = registro duplicado). */

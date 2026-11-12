@@ -17,7 +17,8 @@ export async function render(el) {
 
 function desenhar(el) {
   el.innerHTML = `
-    <div class="cab-tela"><h1>Nova ocorrência</h1></div>
+    <div class="cab-tela"><h1>Nova ocorrência</h1>
+      <a class="btn-link" href="#/guia" data-icone="livro">Como registrar? Veja o guia</a></div>
     <ol class="passos" aria-label="Etapas">
       <li class="${passo >= 1 ? 'feito' : ''}">Categoria</li>
       <li class="${passo >= 2 ? 'feito' : ''}">Tipo</li>
