@@ -27,7 +27,7 @@ export async function render(el, [id]) {
   const mostrar = (lista) => {
     res.innerHTML = lista.length
       ? lista.map((a) => `<li><a href="#/alunos/${a.id}"><span class="desc">${esc(a.nome)}
-          <small>${esc(a.turma_nome || '')}${a.ra ? ` · RA ${esc(a.ra)}` : ''}</small></span></a></li>`).join('')
+          <small>${esc(a.turma_nome || 'Sem turma')}${a.ra ? ` · RA ${esc(a.ra)}` : ' · sem RA'}</small></span></a></li>`).join('')
       : '<li class="vazio">Nenhum aluno encontrado.</li>';
   };
   let tempo;
@@ -51,7 +51,8 @@ async function historico(el, id) {
   el.innerHTML = `
     <a href="#/alunos" class="btn-link" data-icone="voltar">Buscar outro aluno</a>
     <h1>${esc(aluno.nome)}</h1>
-    <div class="cab-tela"><p>${esc(aluno.turma_nome || 'Sem turma')}${aluno.ra ? ` · RA ${esc(aluno.ra)}` : ''}</p>
+    <div class="cab-tela"><p>${esc(aluno.turma_nome || 'Sem turma')}${aluno.ra ? ` · RA ${esc(aluno.ra)}` : ' · <span class="selo">sem RA</span>'}
+        ${aluno.incluido_por ? `<br><small class="ajuda">Incluído(a) na lista por ${esc(aluno.incluido_por)} em ${dataBR(aluno.incluido_em.slice(0, 10))}, durante um registro. Confira os dados quando atualizar a lista da SED.</small>` : ''}</p>
       ${ehDirecao() && ocorrencias.length ? '<button class="btn" id="btn-relatorio" data-icone="documento">Rascunho do relatório circunstanciado</button>' : ''}</div>
     <div class="numeros">
       <div class="numero"><span>${ocorrencias.length}</span>ocorrências</div>

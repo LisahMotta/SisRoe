@@ -62,8 +62,12 @@ const SECOES = [
         <li><b>Envolvido(a)</b>: quando não está claro, ou quando todos participaram (por exemplo, uma briga entre dois).</li>
       </ul>
       ${img('05-alunos', 'Turma 7º ano A com dois alunos marcados: um como autor e outro como testemunha')}
-      <p>Estudante de outra turma? Abra <b>“Aluno de outra turma ou sem cadastro”</b> e busque pelo nome ou RA.
-        Se ele não estiver cadastrado, digite o nome e clique em <b>Adicionar</b>.</p>
+      <p>Estudante de outra turma? Abra <b>“Aluno de outra turma ou que não está na lista”</b> e busque pelo nome ou RA.</p>
+      <p>O estudante não está na lista (por exemplo, chegou transferido esta semana)? Logo abaixo da busca, preencha
+        <b>nome completo</b> e <b>turma</b> e clique em <b>“Incluir aluno”</b>. <b>O RA é opcional</b>: se não souber, deixe em branco.
+        O aluno entra na lista da escola e já fica selecionado. Quando a lista da SED for atualizada, o RA é completado
+        sem criar um nome repetido.</p>
+      ${img('05b-incluir', 'Formulário para incluir um aluno que não está na lista, com nome, turma e RA opcional')}
       <p>Não lembra o nome? Consulte o <b>Carômetro</b> (menu à esquerda) para reconhecer o estudante pela foto.</p>
       <p class="ajuda">Na Indisciplina é obrigatório indicar pelo menos um estudante. Nas outras categorias, pode ficar em branco se ninguém foi identificado.</p>`,
   },
@@ -114,7 +118,7 @@ const SECOES = [
     html: `<dl class="guia-faq">
         <dt>Escrevi algo errado no relato.</dt><dd>Acrescente uma nota explicando a correção. O relato não é editado, para preservar o registro original.</dd>
         <dt>Registrei a mesma ocorrência duas vezes.</dt><dd>Peça à direção (diretor ou vice) que cancele a duplicada, informando o motivo. Ocorrências não são apagadas, só canceladas.</dd>
-        <dt>Não encontro o estudante.</dt><dd>Busque em “Aluno de outra turma ou sem cadastro”. Se não aparecer, digite o nome. Avise a direção para atualizar a lista da turma.</dd>
+        <dt>Não encontro o estudante.</dt><dd>Busque em “Aluno de outra turma ou que não está na lista”. Se não aparecer, inclua: nome completo e turma bastam, o RA pode ficar em branco.</dd>
         <dt>Não sei qual tipo escolher.</dt><dd>Busque por uma palavra do que aconteceu. Na dúvida, escolha o mais grave ou “Outra indisciplina” e explique no relato. Se perceber o erro depois de registrar, escreva uma nota e avise a equipe gestora pela conversa.</dd>
         <dt>Mais de uma situação ao mesmo tempo (ex.: briga e dano ao patrimônio).</dt><dd>Registre pela mais grave e descreva tudo no relato.</dd>
         <dt>Esqueci a senha.</dt><dd>Procure a direção ou a coordenação da escola para gerar uma senha provisória.</dd>

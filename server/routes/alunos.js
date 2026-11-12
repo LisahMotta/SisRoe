@@ -58,8 +58,13 @@ r.post('/alunos/importar-sed', exigeAdmin, rota(async (req, res) => {
       const campos = [nome, turmaId, txt(l.ra_digito, 2) || null, dataISO(l.data_nascimento) || null,
         txt(l.responsavel, 120) || null, tel || null, tel2 || null];
       // RA pode vir com ou sem zeros à esquerda (000113444149 = 113444149).
-      const existe = ra ? await tx.one("SELECT id FROM alunos WHERE escola_id = ? AND LTRIM(ra, '0') = ?", [eid, ra])
+      let existe = ra ? await tx.one("SELECT id FROM alunos WHERE escola_id = ? AND LTRIM(ra, '0') = ?", [eid, ra])
         : await tx.one('SELECT id FROM alunos WHERE escola_id = ? AND turma_id = ? AND nome = ?', [eid, turmaId, nome]);
+      // Aluno incluído sem RA na hora de um registro: a lista da SED completa o RA (não cria outro).
+      if (!existe && ra) {
+        existe = await tx.one("SELECT id FROM alunos WHERE escola_id = ? AND nome = ? AND (ra IS NULL OR ra = '')", [eid, nome]);
+        if (existe) await tx.run('UPDATE alunos SET ra = ? WHERE id = ? AND escola_id = ?', [ra, existe.id, eid]);
+      }
       let id;
       if (existe) {
         // Contato só é sobrescrito se a planilha trouxer um valor (não apaga o que a escola já cadastrou).
@@ -93,10 +98,47 @@ r.post('/alunos/importar-sed', exigeAdmin, rota(async (req, res) => {
   res.json(resumo);
 }));
 
+/**
+ * Inclui um aluno que não está na lista (ex.: chegou transferido e a lista da SED ainda não foi atualizada).
+ * Pode ser feito por quem registra ocorrências (professor, agente, GOE, secretaria e gestão); o master não registra.
+ * O RA é opcional: quando a lista da SED chegar com o RA, o aluno é completado em vez de duplicado.
+ */
+r.post('/alunos', rota(async (req, res) => {
+  if (req.usuario.perfil === 'master') throw new ErroHttp(403, 'O usuário master não registra ocorrências nem inclui alunos por aqui. Use a importação da lista da SED.');
+  const eid = req.usuario.escola_id;
+  const b = req.body || {};
+  const nome = txt(b.nome, 120).replace(/\s+/g, ' ').toUpperCase();
+  if (nome.length < 3) throw new ErroHttp(400, 'Informe o nome completo do aluno.');
+  let turma = null;
+  if (b.turma_id) {
+    turma = await db.one('SELECT id, nome FROM turmas WHERE id = ? AND escola_id = ?', [Number(b.turma_id), eid]);
+    if (!turma) throw new ErroHttp(404, 'Turma não encontrada.');
+  }
+  const ra = txt(b.ra, 20).replace(/\D/g, '').replace(/^0+(?=\d{6,})/, '') || null;
+  const sel = `SELECT a.id, a.ra, a.nome, a.turma_id, t.nome AS turma_nome FROM alunos a LEFT JOIN turmas t ON t.id = a.turma_id`;
+  if (ra) {
+    const mesmoRa = await db.one(`${sel} WHERE a.escola_id = ? AND LTRIM(a.ra, '0') = ? AND a.ativo = 1`, [eid, ra]);
+    if (mesmoRa) {
+      throw new ErroHttp(409, `Já existe aluno com esse RA: ${mesmoRa.nome}${mesmoRa.turma_nome ? ` (${mesmoRa.turma_nome})` : ''}. Busque pelo nome ou RA.`);
+    }
+  }
+  // Mesmo nome na mesma turma: é o mesmo aluno (evita duplicar quando duas pessoas incluem).
+  const mesmoNome = await db.one(
+    `${sel} WHERE a.escola_id = ? AND a.ativo = 1 AND a.nome = ? AND ${turma ? 'a.turma_id = ?' : 'a.turma_id IS NULL'}`,
+    turma ? [eid, nome, turma.id] : [eid, nome]);
+  if (mesmoNome) return res.json({ ...mesmoNome, ja_existia: true });
+
+  const id = await db.insert(
+    'INSERT INTO alunos (escola_id, turma_id, ra, nome, ativo, incluido_por, incluido_em) VALUES (?,?,?,?,1,?,?)',
+    [eid, turma?.id || null, ra, nome, req.usuario.nome, db.agora()]);
+  await db.auditar(eid, req.usuario, 'aluno_incluido', { id, nome, turma: turma?.nome || null, sem_ra: !ra });
+  res.status(201).json({ id, ra, nome, turma_id: turma?.id || null, turma_nome: turma?.nome || null });
+}));
+
 // Dados do aluno com contato da família (equipe gestora).
 r.get('/alunos/:id', exigeGestao, rota(async (req, res) => {
   const a = await db.one(
-    `SELECT a.id, a.ra, a.ra_digito, a.nome, a.data_nascimento, a.responsavel, a.telefone, a.telefone2, a.turma_id, t.nome AS turma_nome
+    `SELECT a.id, a.ra, a.incluido_por, a.incluido_em, a.ra_digito, a.nome, a.data_nascimento, a.responsavel, a.telefone, a.telefone2, a.turma_id, t.nome AS turma_nome
      FROM alunos a LEFT JOIN turmas t ON t.id = a.turma_id WHERE a.id = ? AND a.escola_id = ?`,
     [Number(req.params.id), req.usuario.escola_id]);
   if (!a) throw new ErroHttp(404, 'Aluno não encontrado.');

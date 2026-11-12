@@ -90,6 +90,14 @@ try {
   await sels.nth(1).selectOption('testemunha');
   await foto('05-alunos', '#form-occ fieldset >> nth=0');
 
+  await pg.click('#det-mais-alunos summary');
+  await pg.fill('#busca-aluno', 'Lucas'); await pg.waitForSelector('#resultado-busca .vazio');
+  await pg.selectOption('#novo-turma', { label: '7º ano A (Manhã)' });
+  await pg.fill('#novo-nome', 'LUCAS ANDRADE PRADO');
+  await foto('05b-incluir', '#det-mais-alunos');
+  await pg.fill('#novo-nome', ''); await pg.fill('#busca-aluno', '');
+  await pg.click('#det-mais-alunos summary');
+
   await pg.fill('textarea[name=relato]', 'Às 9h10, durante a aula de Matemática no 7º ano A, o aluno Bruno estava de boné. Pedi três vezes que retirasse, explicando a regra da escola. Na terceira vez ele respondeu: "Não vou tirar". A aluna Carla presenciou. Encaminhei o aluno à coordenação às 9h20.');
   await pg.click('details.dicas summary');
   const r1 = await pg.locator('label:has(textarea[name=relato])').boundingBox();

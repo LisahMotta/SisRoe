@@ -715,3 +715,9 @@ body.tem-aviso-versao #avisos { top: 72px; }
   .guia-impresso .guia-fig img { max-height: 340px; width: auto; box-shadow: none; }
   .guia-impresso .guia-ruim, .guia-impresso .guia-bom { break-inside: avoid; }
 }
+
+/* Inclusão de aluno que não está na lista (Nova ocorrência) */
+.incluir-aluno { border: 1px dashed var(--borda); border-radius: 10px; padding: 12px 14px; margin-top: 12px; background: var(--superficie-2); }
+.incluir-aluno .rotulo { margin: 0 0 8px; }
+.incluir-aluno .linha-btn { align-items: center; flex-wrap: wrap; }
+.incluir-aluno label small { font-weight: 400; color: var(--texto-2); }

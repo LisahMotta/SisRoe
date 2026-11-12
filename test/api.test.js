@@ -522,6 +522,7 @@ test('Usuário master: configura a escola, ajuda a direção e não vê dados de
   assert.equal((await api('/ocorrencias', { token: M })).dados.length, 0);
   assert.equal((await api(`/ocorrencias/${occ.id}`, { token: M })).status, 404);
   assert.equal((await api('/busca-ativa', { token: M })).status, 403);
+  assert.equal((await api('/alunos', { token: M, metodo: 'POST', corpo: { nome: 'Aluno Pelo Master' } })).status, 403, 'master não inclui aluno por aqui');
   assert.equal((await api(`/ocorrencias/${occ.id}/cancelar`, { token: M, metodo: 'POST', corpo: { motivo: 'teste' } })).status, 403, 'cancelar é decisão da direção');
   // Ajuda com senhas (inclusive da direção), mas não desativa nem rebaixa a direção.
   const usuarios = (await api('/usuarios', { token: M })).dados;
@@ -538,4 +539,55 @@ test('Usuário master: configura a escola, ajuda a direção e não vê dados de
   assert.equal((await api(`/usuarios/${mario.id}/resetar-senha`, { token: V, metodo: 'POST' })).status, 403);
   // Isolamento: o master de uma escola não alcança outra.
   assert.equal((await api('/usuarios', { token: M })).dados.some((u) => u.login === 'diretora'), false);
+});
+
+test('Aluno que não está na lista: professor, agente, GOE e secretaria incluem sem RA; a SED completa depois', async () => {
+  const E = await cadastrarEscola('escola-incluir');
+  const turma = (await api('/turmas', { token: E, metodo: 'POST', corpo: { nome: '6º A' } })).dados.id;
+  const outra = await cadastrarEscola('escola-incluir-2');
+  const turmaOutra = (await api('/turmas', { token: outra, metodo: 'POST', corpo: { nome: '6º A' } })).dados.id;
+  const tokens = {};
+  for (const [login, perfil] of [['31111111', 'professor'], ['32222222', 'agente'], ['33333333', 'gerente'], ['34444444', 'secretaria']]) {
+    tokens[perfil] = await criarUsuario(E, 'escola-incluir', login, perfil);
+  }
+  // Cada perfil inclui um aluno sem RA.
+  for (const [perfil, t] of Object.entries(tokens)) {
+    const r = await api('/alunos', { token: t, metodo: 'POST', corpo: { nome: `  aluno   novo ${perfil} `, turma_id: turma } });
+    assert.equal(r.status, 201, JSON.stringify(r.dados));
+    assert.equal(r.dados.nome, `ALUNO NOVO ${perfil.toUpperCase()}`);
+    assert.equal(r.dados.ra, null);
+    assert.equal(r.dados.turma_nome, '6º A');
+  }
+  const P = tokens.professor;
+  assert.equal((await api(`/alunos?turma_id=${turma}`, { token: P })).dados.length, 4);
+  // Mesmo nome na mesma turma não duplica; sem turma também é aceito.
+  const dup = await api('/alunos', { token: P, metodo: 'POST', corpo: { nome: 'Aluno Novo Professor', turma_id: turma } });
+  assert.equal(dup.status, 200);
+  assert.equal(dup.dados.ja_existia, true);
+  assert.equal((await api('/alunos', { token: P, metodo: 'POST', corpo: { nome: 'Visitante Sem Turma' } })).status, 201);
+  // Validações: nome curto, RA repetido, turma de outra escola.
+  assert.equal((await api('/alunos', { token: P, metodo: 'POST', corpo: { nome: 'Jo' } })).status, 400);
+  assert.equal((await api('/alunos', { token: P, metodo: 'POST', corpo: { nome: 'Com RA', ra: '000555666777', turma_id: turma } })).status, 201);
+  assert.equal((await api('/alunos', { token: P, metodo: 'POST', corpo: { nome: 'Outro Nome', ra: '555666777' } })).status, 409);
+  assert.equal((await api('/alunos', { token: P, metodo: 'POST', corpo: { nome: 'Invasor', turma_id: turmaOutra } })).status, 404);
+  assert.equal((await api('/alunos?busca=aluno novo', { token: outra })).dados.length, 0, 'outra escola não vê');
+  // O aluno incluído entra na ocorrência como aluno cadastrado (com id).
+  const incluido = (await api('/alunos?busca=agente', { token: P })).dados[0];
+  const tipo = (await api('/tipos', { token: P })).dados.find((t) => t.codigo === 'A3');
+  const occ = await api('/ocorrencias', { token: P, metodo: 'POST', corpo: { tipo_id: tipo.id, data: '2026-11-10', hora: '09:00', local: 'Sala de aula',
+    relato: 'Recusou-se a tirar o boné após três pedidos.', alunos: [{ id: incluido.id, papel: 'autor' }] } });
+  assert.equal(occ.status, 201, JSON.stringify(occ.dados));
+  // A direção vê quem incluiu.
+  const hist = (await api(`/alunos/${incluido.id}/historico`, { token: E })).dados;
+  assert.equal(hist.aluno.incluido_por, '32222222'.toUpperCase());
+  assert.equal(hist.ocorrencias.length, 1);
+  // Lista da SED com RA: completa o aluno incluído sem RA (não cria outro) e o histórico continua nele.
+  const r = (await api('/alunos/importar-sed', { token: E, metodo: 'POST', corpo: { linhas: [
+    { turma: '6º A', nome: 'Aluno Novo Agente', ra: '000123123123' }] } })).dados;
+  assert.equal(r.criados, 0);
+  assert.equal(r.atualizados, 1);
+  const depois = (await api('/alunos?busca=novo agente', { token: E })).dados;
+  assert.equal(depois.length, 1);
+  assert.equal(depois[0].id, incluido.id);
+  assert.equal(depois[0].ra, '123123123');
 });
