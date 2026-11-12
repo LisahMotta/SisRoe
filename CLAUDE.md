@@ -40,5 +40,11 @@ Multi-school (multi-tenant) incident log. Express backend + vanilla JS SPA (ES m
 - Hosting: `api/index.js` + `vercel.json` (Vercel serverless: static `public/` served by the CDN, `/api/*` goes to the
   Express app; set `PG_MAX_CONEXOES=1`) and `render.yaml` (Render free web service). DB is Neon (PostgreSQL).
   `db.init()` runs on every cold start and must stay idempotent and race-tolerant.
+- Chat/avisos: `routes/chat.js` (chat per occurrence, same visibility as the occurrence; `/notificacoes` is polled by
+  `public/js/notificacoes.js` every 45 s for pop-ups; Web Push via `server/push.js` only when VAPID keys are set, and
+  push text never includes student names). PDF: `server/pdf.js` (pdfkit, Helvetica/WinAnsi — `limpo()` sanitizes text).
+- SED import: CSV parsed in the browser (`public/js/sed.js`), rows sent to `POST /alunos/importar-sed`; RA matched with
+  `LTRIM(ra,'0')`. Carômetro photos are resized client-side and stored in `fotos_alunos` (no persistent disk on Vercel).
+  Busca ativa: `routes/busca.js`; WhatsApp only opens `wa.me` links (`public/js/whatsapp.js`), never sends by itself.
 - Integrity rules: the original relato is never edited (use notas), gravidade only goes up, ocorrências are cancelled
   (with a reason), never deleted.

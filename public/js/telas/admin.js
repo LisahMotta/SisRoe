@@ -1,15 +1,18 @@
 // telas/admin.js — administração da escola (direção e vice-direção).
 // Abas: primeiros passos, escola, usuários, turmas e alunos, tipos, auditoria.
 import { api } from '../api.js';
-import { $, $$, esc, lerForm, avisar, avisarErro, comCarregando, abrirModal, fecharModal, dataHoraBR, seloGravidade } from '../ui.js';
+import { $, $$, esc, lerForm, avisar, avisarErro, comCarregando, abrirModal, fecharModal, dataHoraBR, seloGravidade, aplicarIcones } from '../ui.js';
 import { estado, ehAdmin, recarregarCadastros } from '../app.js';
 import { PERFIS, CATEGORIAS, GRAVIDADES, MACROS } from '../catalogo.js';
+import { lerArquivoSED } from '../sed.js';
+import { MODELO_PADRAO, CAMPOS_MODELO } from '../whatsapp.js';
 
 const ABAS = {
   'primeiros-passos': 'Primeiros passos',
   escola: 'Escola',
   usuarios: 'Usuários',
   turmas: 'Turmas e alunos',
+  sed: 'Importar da SED',
   tipos: 'Tipos de ocorrência',
   auditoria: 'Auditoria',
 };
@@ -27,7 +30,7 @@ export async function render(el, [aba = 'primeiros-passos', ...resto]) {
     </nav>
     <div id="aba"></div>`;
   const alvo = $('#aba', el);
-  const telas = { 'primeiros-passos': primeirosPassos, escola, usuarios, turmas, tipos, auditoria };
+  const telas = { 'primeiros-passos': primeirosPassos, escola, usuarios, turmas, sed, tipos, auditoria };
   await telas[aba](alvo, resto);
 }
 
@@ -62,7 +65,7 @@ async function primeirosPassos(el) {
     <ol class="checklist-inicio">
       ${item(!!estado.escola.municipio, 'Conferir os dados da escola (aparecem no cabeçalho dos documentos impressos)', '#/admin/escola')}
       ${item(estado.turmas.length > 0, 'Cadastrar as turmas', '#/admin/turmas')}
-      ${item(temAlunos, 'Importar os alunos de cada turma (copiar e colar da planilha da Secretaria Escolar Digital)', '#/admin/turmas')}
+      ${item(temAlunos, 'Importar os alunos: envie as listas CSV exportadas da SED (cria as turmas sozinho)', '#/admin/sed')}
       ${item(usuarios.length > 1, 'Cadastrar professores, agentes, POC, coordenação e vice-direção', '#/admin/usuarios')}
       ${item(false, 'Conhecer os tipos de ocorrência: as 50 situações do Protocolo 179 (3ª versão) e as indisciplinas do dia a dia', '#/admin/tipos')}
     </ol>
@@ -82,6 +85,9 @@ async function escola(el) {
     </div>
     <label>Unidade Regional de Ensino <input name="diretoria" maxlength="120" value="${esc(e.diretoria || '')}"></label>
     <label>Endereço <input name="endereco" maxlength="200" value="${esc(e.endereco || '')}"></label>
+    <label>Mensagem de WhatsApp da busca ativa
+      <textarea name="modelo_whatsapp" rows="4" maxlength="1000">${esc(e.modelo_whatsapp || MODELO_PADRAO)}</textarea>
+      <small>Campos que o sistema preenche: ${CAMPOS_MODELO.join(' ')}. A mensagem pode ser revisada antes de cada envio.</small></label>
     <p class="ajuda">Código de acesso (não pode ser alterado): <b>${esc(e.codigo)}</b></p>
     <button class="btn btn-primario" type="submit">Salvar</button>
   </form>`;
@@ -243,6 +249,90 @@ async function detalheTurma(caixa, t, el) {
     if (!b || !confirm('Remover este aluno da lista? O histórico de ocorrências dele é mantido.')) return;
     try { await api(`/alunos/${b.dataset.removerAluno}`, { metodo: 'DELETE' }); await turmas(el, [t.id]); }
     catch (err) { avisarErro(err); }
+  });
+}
+
+
+// ─── Importar listas da SED (CSV) ────────────────────────────────────────────
+async function sed(el) {
+  const box = novoContainer(el);
+  const existentes = new Map(estado.turmas.map((t) => [t.nome.toLowerCase(), t]));
+  box.innerHTML = `
+    <section class="cartao">
+      <h2>Importar listas de alunos da SED</h2>
+      <ol class="passos-texto">
+        <li>Na SED, abra a relação de alunos da turma e exporte em <b>CSV</b> (ou salve a planilha como CSV).</li>
+        <li>Escolha um ou vários arquivos abaixo (um por turma, ou um arquivo com a coluna "Turma").</li>
+        <li>Confira a prévia, ajuste o nome das turmas se precisar e clique em <b>Importar</b>.</li>
+      </ol>
+      <p class="ajuda">O arquivo é lido no seu computador; só os dados dos alunos são enviados. Alunos com situação diferente de
+        "Ativo" (transferido, remanejado, abandono…) são ignorados. Se o RA já existir, o aluno é atualizado e movido de turma.
+        Colunas reconhecidas: nome, RA, dígito, turma, situação, data de nascimento, responsável e telefone.</p>
+      <label class="arquivo">Arquivos CSV da SED
+        <input type="file" id="sed-arquivos" accept=".csv,.txt,text/csv" multiple></label>
+    </section>
+    <div id="sed-previa"></div>`;
+
+  let grupos = []; // [{ turma, alunos: [...] }]
+  $('#sed-arquivos', box).addEventListener('change', async (ev) => {
+    const prev = $('#sed-previa', box);
+    const arquivos = [...ev.target.files];
+    if (!arquivos.length) { prev.innerHTML = ''; return; }
+    prev.innerHTML = '<p class="carregando">Lendo arquivos…</p>';
+    const porTurma = new Map();
+    const erros = [];
+    let ignorados = 0;
+    for (const f of arquivos) {
+      const r = await lerArquivoSED(f);
+      if (r.erro) { erros.push(`${f.name}: ${r.erro}`); continue; }
+      ignorados += r.ignorados.length;
+      for (const a of r.alunos) {
+        if (!porTurma.has(a.turma)) porTurma.set(a.turma, []);
+        porTurma.get(a.turma).push(a);
+      }
+    }
+    grupos = [...porTurma.entries()].map(([turma, alunos]) => ({ turma, alunos }));
+    const total = grupos.reduce((n, g) => n + g.alunos.length, 0);
+    prev.innerHTML = `
+      ${erros.map((e) => `<div class="alerta alerta-perigo" data-icone="alerta"><span>${esc(e)}</span></div>`).join('')}
+      ${grupos.length ? `<section class="cartao">
+        <div class="cab-tela"><h2>Prévia: ${total} aluno(s) em ${grupos.length} turma(s)</h2>
+          ${ignorados ? `<span class="selo grav-leve">${ignorados} não ativo(s) ignorado(s)</span>` : ''}</div>
+        <div class="tabela-rolagem"><table class="tabela">
+          <thead><tr><th>Turma no SisRoe</th><th>Alunos</th><th>Situação</th><th>Exemplo</th></tr></thead>
+          <tbody>${grupos.map((g, i) => {
+            const existe = existentes.has(g.turma.toLowerCase());
+            return `<tr><td><input class="sed-turma" data-i="${i}" value="${esc(g.turma)}" maxlength="60" aria-label="Nome da turma"></td>
+              <td>${g.alunos.length}</td>
+              <td class="sed-sit" data-i="${i}">${existe ? '<span class="selo st-encerrada">já existe</span>' : '<span class="selo st-em_acompanhamento">nova turma</span>'}</td>
+              <td><small>${esc(g.alunos.slice(0, 2).map((a) => a.nome).join(', '))}${g.alunos.length > 2 ? '…' : ''}</small></td></tr>`;
+          }).join('')}</tbody></table></div>
+        <label class="check" style="margin-top:14px"><input type="checkbox" id="sed-desativar">
+          Desativar alunos dessas turmas que <b>não</b> estão na lista (transferidos/remanejados). O histórico deles continua guardado.</label>
+        <div class="acoes"><button class="btn btn-primario" id="sed-importar" data-icone="baixar">Importar ${total} aluno(s)</button></div>
+      </section>` : ''}`;
+    aplicarIcones(prev);
+    $$('.sed-turma', prev).forEach((inp) => inp.addEventListener('input', () => {
+      const i = Number(inp.dataset.i);
+      grupos[i].turma = inp.value.trim();
+      $(`.sed-sit[data-i="${i}"]`, prev).innerHTML = existentes.has(grupos[i].turma.toLowerCase())
+        ? '<span class="selo st-encerrada">já existe</span>' : '<span class="selo st-em_acompanhamento">nova turma</span>';
+    }));
+    $('#sed-importar', prev)?.addEventListener('click', async (e) => {
+      const linhas = grupos.flatMap((g) => g.alunos.map((a) => ({ ...a, turma: g.turma })));
+      if (linhas.some((l) => !l.turma)) return avisar('Preencha o nome de todas as turmas.', 'erro');
+      await comCarregando(e.currentTarget, async () => {
+        try {
+          const r = await api('/alunos/importar-sed', { metodo: 'POST', corpo: { linhas, desativarAusentes: $('#sed-desativar', prev).checked } });
+          await recarregarCadastros();
+          prev.innerHTML = `<section class="cartao"><div class="alerta alerta-info" data-icone="ok"><span><b>Importação concluída.</b>
+            ${r.criados} aluno(s) novo(s), ${r.atualizados} atualizado(s), ${r.turmasCriadas} turma(s) criada(s)${r.desativados ? `, ${r.desativados} desativado(s)` : ''}${r.ignorados ? `, ${r.ignorados} linha(s) sem nome/turma` : ''}.</span></div>
+            <a class="btn" href="#/admin/turmas">Ver turmas</a> <a class="btn" href="#/carometro">Abrir o carômetro</a></section>`;
+          aplicarIcones(prev);
+          $('#sed-arquivos', box).value = '';
+        } catch (err) { avisarErro(err); }
+      });
+    });
   });
 }
 

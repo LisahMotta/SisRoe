@@ -15,7 +15,7 @@ const r = express.Router();
 // ─── Sessão ──────────────────────────────────────────────────────────────────
 r.get('/eu', rota(async (req, res) => {
   const escola = await db.one(
-    'SELECT id, nome, codigo, cie, municipio, diretoria, telefone, endereco FROM escolas WHERE id = ?',
+    'SELECT id, nome, codigo, cie, municipio, diretoria, telefone, endereco, modelo_whatsapp FROM escolas WHERE id = ?',
     [req.usuario.escola_id]
   );
   const u = req.usuario;
@@ -41,9 +41,11 @@ r.post('/minha-senha', rota(async (req, res) => {
 r.put('/escola', exigeAdmin, rota(async (req, res) => {
   const e = req.body || {};
   await db.run(
-    'UPDATE escolas SET nome = ?, cie = ?, municipio = ?, diretoria = ?, telefone = ?, endereco = ? WHERE id = ?',
+    `UPDATE escolas SET nome = ?, cie = ?, municipio = ?, diretoria = ?, telefone = ?, endereco = ?,
+       modelo_whatsapp = COALESCE(?, modelo_whatsapp) WHERE id = ?`,
     [obrigatorio(e.nome, 'nome da escola', 150), txt(e.cie, 20), txt(e.municipio, 80), txt(e.diretoria, 120),
-     txt(e.telefone, 30), txt(e.endereco, 200), req.usuario.escola_id]
+     txt(e.telefone, 30), txt(e.endereco, 200), e.modelo_whatsapp !== undefined ? txt(e.modelo_whatsapp, 1000) : null,
+     req.usuario.escola_id]
   );
   await db.auditar(req.usuario.escola_id, req.usuario, 'escola_editada');
   res.json({ ok: true });

@@ -6,6 +6,7 @@
 import { api, getSessao, limparSessao } from './api.js';
 import { $, $$, esc, avisarErro, aplicarIcones } from './ui.js';
 import { PERFIS, PERFIS_GESTAO, PERFIS_ADMIN } from './catalogo.js';
+import { iniciarAvisos, pararAvisos } from './notificacoes.js';
 
 // Dados carregados após o login e usados por várias telas.
 export const estado = { usuario: null, escola: null, turmas: [], tipos: [] };
@@ -24,6 +25,8 @@ const ROTAS = {
   alunos: () => import('./telas/alunos.js'),
   admin: () => import('./telas/admin.js'),
   conta: () => import('./telas/conta.js'),
+  carometro: () => import('./telas/carometro.js'),
+  busca: () => import('./telas/busca.js'),
 };
 const PUBLICAS = ['login', 'cadastro'];
 
@@ -59,6 +62,7 @@ function montarTopo() {
   $('#usuario-avatar').textContent = iniciais(u.nome);
   $$('[data-gestao]').forEach((el) => { el.hidden = !ehGestao(); });
   $$('[data-admin]').forEach((el) => { el.hidden = !ehAdmin(); });
+  if (!u.trocar_senha) iniciarAvisos(); // pop-ups de ocorrência nova / mensagem no chat
 }
 
 export function navegar(hash) {
@@ -109,6 +113,7 @@ async function roteador() {
 }
 
 export function sair() {
+  pararAvisos();
   limparSessao();
   estado.usuario = null;
   estado.escola = null;

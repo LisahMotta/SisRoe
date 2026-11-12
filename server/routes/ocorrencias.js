@@ -15,13 +15,15 @@ import { exigeGestao, exigeAdmin, ehGestao } from '../auth.js';
 import { ErroHttp, txt, obrigatorio, dataValida, horaValida, rota } from '../util.js';
 import { ORDEM_GRAVIDADE, PAPEIS_ALUNO, PROCEDIMENTOS, STATUS, CATEGORIAS, GRAVIDADES, NIVEIS, MACROS } from '../../public/js/catalogo.js';
 import { passosDoTipo } from '../tipos.js';
+import { notificar, idsGestao } from '../push.js';
+import { gerarPdfOcorrencia } from '../pdf.js';
 
 const r = express.Router();
 
-const numero = (o) => `${o.ano}/${String(o.seq).padStart(4, '0')}`;
+export const numero = (o) => `${o.ano}/${String(o.seq).padStart(4, '0')}`;
 
 /** Busca a ocorrência garantindo escola e permissão de leitura. */
-async function carregar(req, id) {
+export async function carregar(req, id) {
   const o = await db.one('SELECT * FROM ocorrencias WHERE id = ? AND escola_id = ?', [Number(id), req.usuario.escola_id]);
   if (!o) throw new ErroHttp(404, 'Ocorrência não encontrada.');
   if (!ehGestao(req.usuario) && o.registrado_por_id !== req.usuario.id) {
@@ -37,7 +39,7 @@ function passosDaOcorrencia(o) {
   return p.length ? p : PROCEDIMENTOS[o.categoria] || [];
 }
 
-function formatar(o) {
+export function formatar(o) {
   return {
     ...o,
     numero: numero(o),
@@ -120,8 +122,9 @@ r.get('/ocorrencias.csv', exigeGestao, rota(async (req, res) => {
 }));
 
 // ─── Detalhe ─────────────────────────────────────────────────────────────────
-r.get('/ocorrencias/:id', rota(async (req, res) => {
-  const o = await carregar(req, req.params.id);
+/** Ocorrência completa (alunos, notas, afastamentos), usada na tela e no PDF. */
+export async function detalheCompleto(req, id) {
+  const o = await carregar(req, id);
   const eid = req.usuario.escola_id;
   const alunos = await db.all(
     'SELECT aluno_id, ra, nome, turma_nome, papel FROM ocorrencia_alunos WHERE escola_id = ? AND ocorrencia_id = ? ORDER BY id',
@@ -138,12 +141,28 @@ r.get('/ocorrencias/:id', rota(async (req, res) => {
      WHERE x.escola_id = ? AND x.aluno_id IN (${ids.map(() => '?').join(',')}) AND oc.id <> ? AND oc.status <> 'cancelada'
      GROUP BY x.aluno_id`, [eid, ...ids, o.id]) : [];
   const mapa = Object.fromEntries(anteriores.map((r) => [r.aluno_id, Number(r.qtd)]));
-  res.json({
+  return {
     ...formatar(o),
     alunos: alunos.map((a) => ({ ...a, anteriores: a.aluno_id ? mapa[a.aluno_id] || 0 : null })),
     notas,
     afastamentos: afastamentos.map((a) => ({ ...a, hipoteses: JSON.parse(a.hipoteses || '[]') })),
-  });
+  };
+}
+
+r.get('/ocorrencias/:id', rota(async (req, res) => {
+  res.json(await detalheCompleto(req, req.params.id));
+}));
+
+// PDF da ocorrência (mesmas permissões de quem pode ver a ocorrência).
+r.get('/ocorrencias/:id/pdf', rota(async (req, res) => {
+  const o = await detalheCompleto(req, req.params.id);
+  const escola = await db.one('SELECT nome, cie, municipio, diretoria FROM escolas WHERE id = ?', [req.usuario.escola_id]);
+  const pdf = await gerarPdfOcorrencia(o, escola, req.usuario.nome);
+  await db.auditar(req.usuario.escola_id, req.usuario, 'pdf_emitido', { id: o.id });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="ocorrencia-${o.ano}-${String(o.seq).padStart(4, '0')}.pdf"`);
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(pdf);
 }));
 
 // ─── Registro ────────────────────────────────────────────────────────────────
@@ -228,6 +247,13 @@ r.post('/ocorrencias', rota(async (req, res) => {
     else throw e;
   }
   await db.auditar(eid, u, 'ocorrencia_registrada', { id: criado.id, tipo: tipo.codigo });
+  // Avisa a equipe gestora (notificação do sistema; o pop-up na página vem de /notificacoes).
+  await notificar(eid, await idsGestao(eid, u.id), {
+    titulo: `Nova ocorrência ${numero({ ano, seq: criado.seq })}`,
+    corpo: `${tipo.codigo} · ${tipo.descricao}${turma ? ` · ${turma.nome}` : ''} — registrada por ${u.nome}`,
+    url: `/#/ocorrencia/${criado.id}`,
+    tag: `occ-${criado.id}`,
+  });
   res.status(201).json({ id: criado.id, numero: numero({ ano, seq: criado.seq }), categoria: tipo.categoria });
 }));
 

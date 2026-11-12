@@ -34,9 +34,9 @@ atualizar o catálogo não altera registros antigos. Para gerar o catálogo de u
 
 | Quem | O que pode fazer |
 |---|---|
-| Professor(a), Agente de Organização Escolar | Registrar ocorrências, ver as que registrou, acrescentar notas |
-| POC, Coordenação | Tudo acima + ver todas as ocorrências da escola, fazer o acompanhamento, ver histórico dos alunos, exportar planilha |
-| Vice-direção, Direção | Tudo acima + cadastrar usuários, turmas, alunos e tipos, cancelar registros e ver a auditoria |
+| Professor(a), Agente de Organização Escolar | Registrar ocorrências, ver as que registrou, conversar com a gestão no chat da ocorrência, ver o carômetro |
+| POC, Coordenação | Tudo acima + ver todas as ocorrências, receber os avisos de ocorrência nova, fazer o acompanhamento, histórico dos alunos, busca ativa, fotos do carômetro, exportar planilha |
+| Vice-direção, Direção | Tudo acima + usuários, turmas, importação da SED, tipos, cancelar registros e auditoria |
 
 - Intervenções, níveis de resposta e afastamento preventivo conforme a **Resolução SEDUC nº 68/2026** (detalhes abaixo).
 - Registro em 3 passos: **categoria → tipo → dados** (data, hora, local, turma, alunos e o papel de cada um, relato, providências).
@@ -48,7 +48,14 @@ atualizar o catálogo não altera registros antigos. Para gerar o catálogo de u
   só pode aumentar, nenhum registro é apagado (a direção cancela informando o motivo) e as ações ficam na auditoria.
 - Painel com números do ano, gráficos por categoria, mês, tipo e turma.
 - Histórico por aluno, com aviso de reincidência.
-- Importação de alunos colando a lista da planilha (colunas RA e Nome).
+- **Chat da ocorrência + avisos para a gestão:** assim que uma ocorrência é registrada, a equipe gestora recebe um
+  pop-up (e, se ativado, uma notificação no celular/computador) e uma conversa se abre entre quem registrou e a gestão.
+- **PDF da ocorrência** gerado pelo sistema (botão "Baixar PDF"), com todos os dados, procedimentos e assinaturas.
+- **Importação das listas da SED (CSV):** cria as turmas e os alunos sozinho, ignora quem não está "Ativo" e mostra
+  uma prévia antes de importar. Também é possível colar a lista na turma (colunas RA e Nome).
+- **Carômetro:** fotos dos estudantes por turma, para os servidores reconhecerem os alunos.
+- **Busca ativa:** registro dos faltosos por turma, contato da família e mensagem de WhatsApp pronta (abre no aparelho
+  de quem envia; nada é disparado automaticamente), com histórico de contatos e situação de cada caso.
 - Exportação para planilha (CSV que abre no Excel/Google Planilhas).
 - Funciona no celular.
 
@@ -176,11 +183,41 @@ Cada novo commit na branch `main` publica a nova versão sozinho.
 | `SQLITE_FILE` | Caminho do arquivo SQLite | `data/sisroe.db` |
 | `PGSSL` | `false` para PostgreSQL local sem SSL | SSL ligado |
 | `PG_MAX_CONEXOES` | Máximo de conexões abertas com o banco | 5 |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Chaves das notificações do aparelho (opcional) | — (só pop-up na página) |
+| `VAPID_SUBJECT` | Contato do responsável pelo servidor, ex.: `mailto:voce@exemplo.com` | genérico |
+
+## Notificações no celular e no computador (opcional)
+
+Sem configuração nenhuma, a equipe gestora já recebe **pop-ups dentro do SisRoe** (com o sistema aberto) a cada
+ocorrência nova e a cada mensagem no chat. Para receber a notificação **mesmo com o SisRoe fechado**:
+
+1. Gere um par de chaves uma única vez. No computador, com o Node.js instalado:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+2. Na Vercel (*Settings → Environment Variables*), crie `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` com as duas chaves e
+   faça um novo *Deploy*. A chave privada é secreta: não compartilhe.
+3. Cada pessoa ativa no próprio aparelho em **Minha conta → Notificações neste aparelho → Ativar notificações**.
+   No iPhone, antes é preciso abrir o SisRoe no Safari e usar **Compartilhar → Adicionar à Tela de Início**.
+
+Por privacidade, a notificação mostra número, tipo e turma da ocorrência, mas **nunca nome de estudante** (ela aparece
+na tela bloqueada).
+
+## Listas da SED
+
+Em **Administração → Importar da SED**, escolha os arquivos CSV exportados da Secretaria Escolar Digital (um por
+turma, ou um arquivo com a coluna "Turma"). O sistema reconhece as colunas de nome, RA, dígito, turma, situação, data
+de nascimento, responsável e telefone, aceita os separadores `;` `,` `|` e tabulação, e entende os acentos do jeito
+que a SED exporta. Se a planilha estiver em Excel (.xlsx), salve como CSV antes. Alunos que já existem (mesmo RA, com
+ou sem zeros à esquerda) são atualizados; com a opção marcada, quem saiu da lista é desativado, sem perder o histórico.
 
 ## Primeiro uso numa escola
 
 1. Cadastre a escola e anote o **código de acesso** (ex.: `ee-exemplo`). Todos os servidores usam esse código no login.
-2. **Administração → Turmas e alunos**: crie as turmas e cole a lista de alunos de cada uma.
+2. **Administração → Importar da SED**: envie as listas CSV das turmas (ou crie as turmas e cole as listas em
+   *Turmas e alunos*). Depois, a equipe gestora pode colocar as fotos em **Carômetro**.
 3. **Administração → Usuários**: cadastre cada servidor. O sistema gera uma **senha provisória**, e no primeiro acesso
    a pessoa cria a própria senha. Se alguém esquecer a senha, use **"Nova senha"**.
 4. **Administração → Tipos de ocorrência**: as 50 situações do Protocolo 179 já vêm prontas; acrescente indisciplinas próprias da escola, se quiser.
@@ -197,6 +234,11 @@ server/
   routes/escola.js    escola, usuários, turmas, alunos, tipos, auditoria
   routes/ocorrencias.js  registro, lista, detalhe, acompanhamento, notas, histórico, painel, CSV
   routes/medidas.js   afastamento preventivo temporário e relatório circunstanciado (Res. SEDUC 68/2026)
+  routes/alunos.js    importação da SED, contato da família e carômetro
+  routes/busca.js     busca ativa (casos, ações, WhatsApp)
+  routes/chat.js      chat da ocorrência, avisos (pop-up) e inscrição de notificações
+  push.js             envio das notificações do aparelho (Web Push)
+  pdf.js              PDF da ocorrência
   protocolo179.js     50 situações do Protocolo 179 — 3ª versão (gerado; ver ferramentas/)
   tipos.js            cria e atualiza o catálogo de tipos de cada escola
 api/index.js          entrada do sistema na Vercel (vercel.json: rotas e cabeçalhos de segurança)

@@ -1,7 +1,9 @@
 // telas/detalhe.js — ficha da ocorrência (pronta para imprimir),
 // acompanhamento pela equipe gestora, notas e afastamento preventivo
 // temporário (Cap. IV da Res. SEDUC nº 68/2026).
-import { api } from '../api.js';
+import { api, baixar } from '../api.js';
+import { montarChat } from '../chat.js';
+import { fecharPopupsDa } from '../notificacoes.js';
 import { $, $$, esc, dataBR, dataHoraBR, seloCategoria, seloGravidade, seloStatus, lerForm, avisar, avisarErro,
   comCarregando, abrirModal, fecharModal, hojeISO, imprimirAvulso } from '../ui.js';
 import { estado, ehGestao, ehAdmin } from '../app.js';
@@ -16,12 +18,16 @@ export async function render(el, [id]) {
   const feitos = new Set(o.protocolo);
   const podeAcompanhar = ehGestao() && o.status !== 'cancelada';
   const reincidente = o.alunos.some((a) => a.anteriores >= 2);
+  // Acabou de registrar (vindo da tela de nova ocorrência): mostra o aviso e foca o chat.
+  const recemCriada = sessionStorage.getItem('sisroe_recem') === String(o.id);
+  try { sessionStorage.removeItem('sisroe_recem'); } catch { /* sem armazenamento */ }
 
   el.innerHTML = `
     <div class="cab-tela nao-imprimir">
       <a href="#/ocorrencias" class="btn-link" data-icone="voltar">Voltar às ocorrências</a>
       <div class="linha-btn">
-        <button class="btn" id="btn-imprimir" data-icone="imprimir">Imprimir / PDF</button>
+        <button class="btn btn-primario" id="btn-pdf" data-icone="documento">Baixar PDF</button>
+        <button class="btn" id="btn-imprimir" data-icone="imprimir">Imprimir</button>
         ${ehAdmin() && o.status !== 'cancelada' ? '<button class="btn btn-perigo-claro" id="btn-cancelar" data-icone="lixeira">Cancelar registro</button>' : ''}
       </div>
     </div>
@@ -29,6 +35,9 @@ export async function render(el, [id]) {
     ${o.status === 'cancelada' ? `<div class="alerta alerta-perigo" data-icone="alerta"><span>Registro <b>cancelado</b>. Motivo: ${esc(o.motivo_cancelamento)}</span></div>` : ''}
     ${ehGestao() && reincidente ? `<div class="alerta alerta-info nao-imprimir" data-icone="info"><span>Há estudante com 2 ou mais ocorrências anteriores.
       Considere o histórico na classificação do nível de resposta (Art. 5º, § 1º, ${RES68}).</span></div>` : ''}
+    ${recemCriada ? `<div class="alerta alerta-info nao-imprimir" data-icone="ok"><span><b>Ocorrência registrada.</b> A equipe gestora foi avisada.
+      Use a conversa abaixo para combinar as providências.</span></div>` : ''}
+    <div id="chat-caixa"></div>
 
     <article class="documento cartao">
       <header class="doc-cab">
@@ -112,6 +121,10 @@ export async function render(el, [id]) {
     ${ehGestao() ? secaoAfastamentos(o) : ''}`;
 
   $('#btn-imprimir', el).addEventListener('click', () => window.print());
+  $('#btn-pdf', el).addEventListener('click', (ev) => comCarregando(ev.currentTarget, () =>
+    baixar(`/ocorrencias/${o.id}/pdf`, `ocorrencia-${o.numero.replace('/', '-')}.pdf`).catch(avisarErro)));
+  montarChat($('#chat-caixa', el), o, { aberto: recemCriada });
+  fecharPopupsDa(o.id);
   const recarregar = () => render(el, [o.id]);
 
   $('#form-nota', el).addEventListener('submit', async (ev) => {
