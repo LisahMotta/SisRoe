@@ -2,7 +2,7 @@
 import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import * as db from './db.js';
-import { PERFIS_GESTAO, PERFIS_ADMIN, PERFIS_BUSCA } from '../public/js/catalogo.js';
+import { PERFIS_GESTAO, PERFIS_ADMIN, PERFIS_BUSCA, PERFIS_DIRECAO } from '../public/js/catalogo.js';
 
 let SECRET = process.env.JWT_SECRET;
 if (!SECRET) {
@@ -63,6 +63,18 @@ export function exigeBuscaAtiva(req, res, next) {
 }
 
 export function exigeAdmin(req, res, next) {
-  if (!ehAdmin(req.usuario)) return res.status(403).json({ erro: 'Acesso restrito à direção.' });
+  if (!ehAdmin(req.usuario)) return res.status(403).json({ erro: 'Acesso restrito à administração da escola (direção ou usuário master).' });
+  next();
+}
+
+export const ehDirecao = (u) => PERFIS_DIRECAO.includes(u.perfil);
+export function exigeDirecao(req, res, next) {
+  if (!ehDirecao(req.usuario)) return res.status(403).json({ erro: 'Decisão reservada à direção da escola.' });
+  next();
+}
+
+// Equipe gestora OU administração (o master ajuda com senhas e fotos, sem ver ocorrências).
+export function exigeGestaoOuAdmin(req, res, next) {
+  if (!ehGestao(req.usuario) && !ehAdmin(req.usuario)) return res.status(403).json({ erro: 'Acesso restrito à equipe gestora.' });
   next();
 }

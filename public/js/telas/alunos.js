@@ -1,7 +1,7 @@
 // telas/alunos.js — busca de aluno e histórico de ocorrências (equipe gestora).
 import { api } from '../api.js';
 import { $, esc, dataBR, dataHoraBR, seloCategoria, seloGravidade, seloStatus, avisarErro, imprimirAvulso, hojeISO } from '../ui.js';
-import { estado, ehGestao, ehAdmin } from '../app.js';
+import { estado, ehGestao, ehDirecao } from '../app.js';
 import { CATEGORIAS, PAPEIS_ALUNO, NIVEIS, RES68 } from '../catalogo.js';
 
 export async function render(el, [id]) {
@@ -52,7 +52,7 @@ async function historico(el, id) {
     <a href="#/alunos" class="btn-link" data-icone="voltar">Buscar outro aluno</a>
     <h1>${esc(aluno.nome)}</h1>
     <div class="cab-tela"><p>${esc(aluno.turma_nome || 'Sem turma')}${aluno.ra ? ` · RA ${esc(aluno.ra)}` : ''}</p>
-      ${ehAdmin() && ocorrencias.length ? '<button class="btn" id="btn-relatorio" data-icone="documento">Rascunho do relatório circunstanciado</button>' : ''}</div>
+      ${ehDirecao() && ocorrencias.length ? '<button class="btn" id="btn-relatorio" data-icone="documento">Rascunho do relatório circunstanciado</button>' : ''}</div>
     <div class="numeros">
       <div class="numero"><span>${ocorrencias.length}</span>ocorrências</div>
       ${porCat.map(([c, n]) => `<div class="numero cat-borda-${c}"><span>${n}</span>${esc(CATEGORIAS[c].nome)}</div>`).join('')}

@@ -38,6 +38,7 @@ atualizar o catálogo não altera registros antigos. Para gerar o catálogo de u
 | Agente e Gerente de Organização Escolar, Secretário(a) de Escola | Tudo o que o professor faz + **busca ativa** de faltosos (WhatsApp para as famílias) |
 | POC, Coordenação | Tudo acima + ver todas as ocorrências, receber os avisos de ocorrência nova, fazer o acompanhamento, histórico dos alunos, busca ativa, fotos do carômetro, exportar planilha e **gerar nova senha para professores e agentes** |
 | Vice-direção, Direção | Tudo acima + usuários, turmas, importação da SED, tipos, cancelar registros e auditoria |
+| Usuário master (1 por escola) | Configuração inicial e atualizações: usuários (inclusive a direção), turmas, SED, carômetro, tipos, catálogo do Protocolo 179, auditoria e senhas. **Não** vê ocorrências, histórico de estudantes nem busca ativa, e não decide medidas da Res. SEDUC 68/2026 |
 
 - Intervenções, níveis de resposta e afastamento preventivo conforme a **Resolução SEDUC nº 68/2026** (detalhes abaixo).
 - Registro em 3 passos: **categoria → tipo → dados** (data, hora, local, turma, alunos e o papel de cada um, relato, providências).
@@ -229,6 +230,17 @@ ou sem zeros à esquerda) são atualizados; com a opção marcada, quem saiu da 
 - **Tutorial por perfil:** no primeiro acesso, cada pessoa vê o passo a passo do seu perfil (professor, agente, POC,
   coordenação, vice, direção). Depois ele fica no menu **Tutorial**, onde a direção também pode ver e **imprimir**
   o tutorial de cada perfil para distribuir.
+
+### Usuário master
+
+Cada escola pode ter **um** usuário master, além da direção: a pessoa que faz a configuração inicial do SisRoe e ajuda
+a direção em atualizações futuras.
+- No cadastro da escola, em "Seu cargo", escolha **Usuário master**; depois cadastre o(a) diretor(a) em Usuários.
+- O master administra o sistema (usuários, turmas, SED, fotos, tipos, **Atualizar catálogo do Protocolo 179**,
+  auditoria) e gera nova senha para qualquer pessoa, inclusive a direção.
+- O master **não** vê ocorrências, histórico de estudantes nem busca ativa (ECA/LGPD) e não decide afastamento
+  preventivo, relatório circunstanciado ou cancelamento de registros (atribuições da direção).
+- Só o(a) diretor(a) cadastra, altera ou desativa o master, e o master não pode desativar nem rebaixar a direção.
 
 ## Primeiro uso numa escola
 

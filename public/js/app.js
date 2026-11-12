@@ -5,7 +5,7 @@
 // O endereço depois do "#" decide a tela: #/painel, #/ocorrencia/12 …
 import { api, getSessao, limparSessao } from './api.js';
 import { $, $$, esc, avisarErro, aplicarIcones, fecharModal } from './ui.js';
-import { PERFIS, PERFIS_GESTAO, PERFIS_ADMIN, PERFIS_BUSCA } from './catalogo.js';
+import { PERFIS, PERFIS_GESTAO, PERFIS_ADMIN, PERFIS_BUSCA, PERFIS_DIRECAO } from './catalogo.js';
 import { iniciarAvisos, pararAvisos } from './notificacoes.js';
 
 // Dados carregados após o login e usados por várias telas.
@@ -14,6 +14,8 @@ export const estado = { usuario: null, escola: null, turmas: [], tipos: [] };
 export const ehGestao = () => PERFIS_GESTAO.includes(estado.usuario?.perfil);
 export const ehAdmin = () => PERFIS_ADMIN.includes(estado.usuario?.perfil);
 export const podeBuscaAtiva = () => PERFIS_BUSCA.includes(estado.usuario?.perfil);
+export const ehDirecao = () => PERFIS_DIRECAO.includes(estado.usuario?.perfil);
+export const ehMaster = () => estado.usuario?.perfil === 'master';
 
 const ROTAS = {
   login: () => import('./telas/login.js'),
@@ -65,6 +67,9 @@ function montarTopo() {
   $('#usuario-avatar').textContent = iniciais(u.nome);
   $$('[data-gestao]').forEach((el) => { el.hidden = !ehGestao(); });
   $$('[data-busca-ativa]').forEach((el) => { el.hidden = !podeBuscaAtiva(); });
+  $$('[data-senhas]').forEach((el) => { el.hidden = !ehGestao() && !ehAdmin(); });
+  // O master cuida da configuração: não registra nem acompanha ocorrências.
+  $$('[data-nao-master]').forEach((el) => { el.hidden = ehMaster(); });
   $$('[data-admin]').forEach((el) => { el.hidden = !ehAdmin(); });
   if (!u.trocar_senha) iniciarAvisos(); // pop-ups de ocorrência nova / mensagem no chat
 }
@@ -93,6 +98,10 @@ async function roteador() {
     if (!estado.usuario.trocar_senha && !estado.usuario.tutorial_visto && rota === 'painel' && !tutorialMostrado) {
       tutorialMostrado = true;
       return navegar('#/tutorial');
+    }
+    // O master não acompanha ocorrências: a tela inicial dele é a Administração.
+    if (estado.usuario.perfil === 'master' && ['painel', 'nova', 'ocorrencias', 'ocorrencia', 'alunos', 'busca'].includes(rota)) {
+      return navegar('#/admin');
     }
     montarTopo();
   } else {

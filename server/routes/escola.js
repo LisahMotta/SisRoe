@@ -4,10 +4,10 @@ import express from 'express';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import * as db from '../db.js';
-import { exigeAdmin, ehAdmin, exigeGestao } from '../auth.js';
+import { exigeAdmin, ehAdmin, exigeGestaoOuAdmin } from '../auth.js';
 import { ErroHttp, txt, obrigatorio, senhaForte, MSG_SENHA, rota } from '../util.js';
 import { normalizarLogin } from './publico.js';
-import { PERFIS, CATEGORIAS, GRAVIDADES, MACROS } from '../../public/js/catalogo.js';
+import { PERFIS, CATEGORIAS, GRAVIDADES, MACROS, PERFIS_ADMIN } from '../../public/js/catalogo.js';
 import { atualizarProtocolo, passosDoTipo } from '../tipos.js';
 
 const r = express.Router();
@@ -65,6 +65,29 @@ function senhaProvisoria() {
   return s + crypto.randomInt(10, 100);
 }
 
+/**
+ * Regras do usuário master (um por escola):
+ *  • só o(a) diretor(a) cadastra, altera ou desativa o master (o próprio master pode editar o nome);
+ *  • no máximo um master ativo por escola;
+ *  • o master não desativa nem muda o perfil da direção (pode gerar nova senha para ajudar).
+ */
+async function conferirRegrasMaster(ator, { alvo = null, perfil, ativo }) {
+  const mexeNoMaster = perfil === 'master' || alvo?.perfil === 'master';
+  const eleMesmoSemMudar = alvo && alvo.id === ator.id && perfil === alvo.perfil && ativo === alvo.ativo;
+  if (mexeNoMaster && ator.perfil !== 'diretor' && !eleMesmoSemMudar) {
+    throw new ErroHttp(403, 'Apenas o(a) diretor(a) pode cadastrar, alterar ou desativar o usuário master.');
+  }
+  if (perfil === 'master' && ativo) {
+    const outro = await db.one(
+      "SELECT id FROM usuarios WHERE escola_id = ? AND perfil = 'master' AND ativo = 1 AND id <> ?",
+      [ator.escola_id, alvo?.id ?? 0]);
+    if (outro) throw new ErroHttp(409, 'Esta escola já tem um usuário master. Desative o atual antes de cadastrar outro.');
+  }
+  if (ator.perfil === 'master' && alvo?.perfil === 'diretor' && (perfil !== 'diretor' || !ativo)) {
+    throw new ErroHttp(403, 'O usuário master não pode desativar nem mudar o perfil da direção.');
+  }
+}
+
 r.get('/usuarios', exigeAdmin, rota(async (req, res) => {
   res.json(await db.all(
     'SELECT id, nome, login, perfil, ativo, trocar_senha, criado_em FROM usuarios WHERE escola_id = ? ORDER BY ativo DESC, nome',
@@ -82,6 +105,7 @@ r.post('/usuarios', exigeAdmin, rota(async (req, res) => {
   if (await db.one('SELECT id FROM usuarios WHERE escola_id = ? AND login = ?', [eid, login])) {
     throw new ErroHttp(409, 'Já existe um usuário com esse login nesta escola.');
   }
+  await conferirRegrasMaster(req.usuario, { perfil: b.perfil, ativo: 1 });
   const provisoria = senhaProvisoria();
   const id = await db.insert(
     'INSERT INTO usuarios (escola_id, nome, login, perfil, senha_hash, ativo, trocar_senha, criado_em) VALUES (?,?,?,?,?,1,1,?)',
@@ -100,9 +124,10 @@ r.put('/usuarios/:id', exigeAdmin, rota(async (req, res) => {
   const perfil = b.perfil ?? alvo.perfil;
   const ativo = b.ativo === undefined ? alvo.ativo : (b.ativo ? 1 : 0);
   if (!PERFIS[perfil]) throw new ErroHttp(400, 'Perfil inválido.');
-  if (id === req.usuario.id && (!ativo || !['vice', 'diretor'].includes(perfil))) {
+  if (id === req.usuario.id && (!ativo || !PERFIS_ADMIN.includes(perfil))) {
     throw new ErroHttp(400, 'Você não pode desativar nem tirar a sua própria permissão de administração.');
   }
+  await conferirRegrasMaster(req.usuario, { alvo, perfil, ativo });
   await db.run('UPDATE usuarios SET nome = COALESCE(?, nome), perfil = ?, ativo = ? WHERE id = ? AND escola_id = ?',
     [b.nome ? txt(b.nome, 120) : null, perfil, ativo, id, eid]);
   await db.auditar(eid, req.usuario, 'usuario_editado', { id, perfil, ativo });
@@ -114,7 +139,7 @@ r.put('/usuarios/:id', exigeAdmin, rota(async (req, res) => {
 //  • coordenação e POC: professores, agentes e gerente de organização escolar e secretário(a) de escola.
 export const PERFIS_SENHA_PELA_GESTAO = ['professor', 'agente', 'gerente', 'secretaria'];
 
-r.post('/usuarios/:id/resetar-senha', exigeGestao, rota(async (req, res) => {
+r.post('/usuarios/:id/resetar-senha', exigeGestaoOuAdmin, rota(async (req, res) => {
   const eid = req.usuario.escola_id;
   const id = Number(req.params.id);
   const alvo = await db.one('SELECT id, perfil FROM usuarios WHERE id = ? AND escola_id = ?', [id, eid]);
@@ -123,6 +148,9 @@ r.post('/usuarios/:id/resetar-senha', exigeGestao, rota(async (req, res) => {
     throw new ErroHttp(403, 'Coordenação e POC podem gerar nova senha para professores, agentes, gerente de organização escolar e secretário(a). Para outros perfis, procure a direção.');
   }
   if (id === req.usuario.id) throw new ErroHttp(400, 'Para trocar a sua própria senha, use "Minha conta".');
+  if (alvo.perfil === 'master' && req.usuario.perfil !== 'diretor') {
+    throw new ErroHttp(403, 'Apenas o(a) diretor(a) pode gerar nova senha para o usuário master.');
+  }
   const provisoria = senhaProvisoria();
   await db.run('UPDATE usuarios SET senha_hash = ?, trocar_senha = 1 WHERE id = ? AND escola_id = ?',
     [await bcrypt.hash(provisoria, 10), id, eid]);
@@ -131,7 +159,7 @@ r.post('/usuarios/:id/resetar-senha', exigeGestao, rota(async (req, res) => {
 }));
 
 // Equipe (para coordenação e POC gerarem nova senha de professores, agentes, GOE e secretaria).
-r.get('/equipe', exigeGestao, rota(async (req, res) => {
+r.get('/equipe', exigeGestaoOuAdmin, rota(async (req, res) => {
   const todos = ehAdmin(req.usuario);
   res.json(await db.all(
     `SELECT id, nome, login, perfil, ativo, trocar_senha FROM usuarios WHERE escola_id = ? AND ativo = 1
@@ -159,7 +187,8 @@ r.post('/usuarios/lote', exigeAdmin, rota(async (req, res) => {
   for (const p of lista) {
     const nome = txt(p.nome, 120).toUpperCase();
     const login = normalizarLogin(p.documento);
-    const perfil = PERFIS[p.perfil] ? p.perfil : 'professor';
+    // O master é único e só a direção o cadastra (individualmente): na lista vira professor.
+    const perfil = PERFIS[p.perfil] && p.perfil !== 'master' ? p.perfil : 'professor';
     if (!nome || login.length < 5) { ignorados.push({ nome: nome || '(sem nome)', motivo: 'nome ou documento ausente' }); continue; }
     if (vistos.has(login)) { ignorados.push({ nome, motivo: 'documento repetido na lista' }); continue; }
     vistos.add(login);

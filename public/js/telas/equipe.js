@@ -18,7 +18,7 @@ export function mostrarSenhaProvisoria(nome, login, senha) {
 }
 
 export async function render(el) {
-  if (!ehGestao()) { el.innerHTML = '<div class="cartao">Área da equipe gestora.</div>'; return; }
+  if (!ehGestao() && !ehAdmin()) { el.innerHTML = '<div class="cartao">Área da equipe gestora.</div>'; return; }
   const lista = await api('/equipe');
   // Contêiner próprio: <main> é o mesmo em todas as telas, então os eventos ficam aqui dentro.
   const box = document.createElement('div');

@@ -6,7 +6,7 @@ import { montarChat } from '../chat.js';
 import { fecharPopupsDa } from '../notificacoes.js';
 import { $, $$, esc, dataBR, dataHoraBR, seloCategoria, seloGravidade, seloStatus, lerForm, avisar, avisarErro,
   comCarregando, abrirModal, fecharModal, hojeISO, imprimirAvulso } from '../ui.js';
-import { estado, ehGestao, ehAdmin } from '../app.js';
+import { estado, ehGestao, ehDirecao } from '../app.js';
 import { CATEGORIAS, GRAVIDADES, ORDEM_GRAVIDADE, PAPEIS_ALUNO, PERFIS, NIVEIS, RES68,
   HIPOTESES_AFASTAMENTO, AFASTAMENTO_MAX_DIAS } from '../catalogo.js';
 import { htmlPassos, htmlPassosDoc, htmlRegraBO, nomeMacro } from '../passos.js';
@@ -28,7 +28,7 @@ export async function render(el, [id]) {
       <div class="linha-btn">
         <button class="btn btn-primario" id="btn-pdf" data-icone="documento">Baixar PDF</button>
         <button class="btn" id="btn-imprimir" data-icone="imprimir">Imprimir</button>
-        ${ehAdmin() && o.status !== 'cancelada' ? '<button class="btn btn-perigo-claro" id="btn-cancelar" data-icone="lixeira">Cancelar registro</button>' : ''}
+        ${ehDirecao() && o.status !== 'cancelada' ? '<button class="btn btn-perigo-claro" id="btn-cancelar" data-icone="lixeira">Cancelar registro</button>' : ''}
       </div>
     </div>
 
@@ -277,7 +277,7 @@ function pendencias(a) {
 }
 
 function secaoAfastamentos(o) {
-  const podeCriar = ehAdmin() && o.status !== 'cancelada' && o.alunos.length;
+  const podeCriar = ehDirecao() && o.status !== 'cancelada' && o.alunos.length;
   return `<section class="cartao nao-imprimir" id="sec-afastamentos">
     <div class="cab-tela"><h2>Afastamento preventivo temporário <small>Cap. IV, ${RES68}</small></h2>
       ${podeCriar && Number(o.nivel) === 3 ? '<button class="btn btn-perigo-claro" id="btn-afastar">Registrar afastamento</button>' : ''}</div>
@@ -303,7 +303,7 @@ function secaoAfastamentos(o) {
         ${a.prorrogacao_fundamento ? `<p><b>Fundamento da prorrogação:</b> ${esc(a.prorrogacao_fundamento)}</p>` : ''}
         ${a.encerramento_obs ? `<p><b>Encerramento:</b> ${esc(a.encerramento_obs)}</p>` : ''}
         ${pend.length ? `<div class="alerta alerta-perigo">Pendente: ${pend.join('; ')}.</div>` : ''}
-        ${ehAdmin() ? `<form class="form-afast-com" data-id="${a.id}">
+        ${ehDirecao() ? `<form class="form-afast-com" data-id="${a.id}">
           <div class="grade-3">
             <label>Família comunicada em <input type="date" name="familia_comunicada_em" value="${esc(a.familia_comunicada_em || '')}"></label>
             <label>URE comunicada em <input type="date" name="ure_comunicada_em" value="${esc(a.ure_comunicada_em || '')}"></label>

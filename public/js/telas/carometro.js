@@ -3,7 +3,9 @@
 // A foto é reduzida no próprio aparelho (máx. 360 px, JPEG) antes de ir para o servidor.
 import { api } from '../api.js';
 import { $, $$, esc, avisar, avisarErro, abrirModal, fecharModal, comCarregando } from '../ui.js';
-import { estado, ehGestao } from '../app.js';
+import { estado, ehGestao, ehAdmin } from '../app.js';
+
+const podeEnviarFoto = () => ehGestao() || ehAdmin();
 
 let turmaAtual = '';
 let filtro = '';
@@ -46,7 +48,7 @@ export async function render(el, [turmaParam]) {
         <select id="caro-turma" aria-label="Turma">${estado.turmas.map((t) => `<option value="${t.id}" ${String(t.id) === turmaAtual ? 'selected' : ''}>${esc(t.nome)}</option>`).join('')}</select>
         <input type="search" id="caro-busca" placeholder="Filtrar por nome" aria-label="Filtrar por nome" value="${esc(filtro)}">
       </div></div>
-    ${ehGestao() ? '<p class="ajuda">Toque num estudante para enviar ou trocar a foto. No celular, dá para tirar a foto na hora.</p>' : ''}
+    ${podeEnviarFoto() ? '<p class="ajuda">Toque num estudante para enviar ou trocar a foto. No celular, dá para tirar a foto na hora.</p>' : ''}
     <div id="caro-grade"></div>`;
   if (!estado.turmas.length) {
     $('#caro-grade', el).innerHTML = '<div class="cartao vazio">Nenhuma turma cadastrada. A direção pode importar as listas da SED em Administração.</div>';
@@ -54,7 +56,7 @@ export async function render(el, [turmaParam]) {
   }
   $('#caro-turma', el).addEventListener('change', (e) => { turmaAtual = e.target.value; desenhar(el); });
   // Um único ouvinte de clique para a grade (ela é redesenhada ao trocar de turma).
-  if (ehGestao()) {
+  if (podeEnviarFoto()) {
     $('#caro-grade', el).addEventListener('click', (ev) => {
       const b = ev.target.closest('[data-aluno]');
       if (b) modalFoto(el, alunosAtuais.find((a) => a.id === Number(b.dataset.aluno)));
@@ -77,11 +79,11 @@ async function desenhar(el) {
       <p class="contagem">${esc(turma.nome)} · ${alunos.length} estudante(s) · ${comFoto} com foto</p>
       <ul class="carometro">${alunos.map((a) => `
         <li class="caro-card" data-nome="${esc(a.nome.toLowerCase())}">
-          <${ehGestao() ? 'button type="button"' : 'div'} class="caro-item" data-aluno="${a.id}" ${ehGestao() ? `aria-label="Foto de ${esc(a.nome)}"` : ''}>
+          <${podeEnviarFoto() ? 'button type="button"' : 'div'} class="caro-item" data-aluno="${a.id}" ${podeEnviarFoto() ? `aria-label="Foto de ${esc(a.nome)}"` : ''}>
             ${a.foto ? `<img src="${a.foto}" alt="Foto de ${esc(a.nome)}" loading="lazy">` : `<span class="caro-sem" aria-hidden="true">${esc(iniciais(a.nome))}</span>`}
             <span class="caro-nome">${esc(a.nome)}</span>
             ${a.ra ? `<span class="caro-ra">RA ${esc(a.ra)}</span>` : ''}
-          </${ehGestao() ? 'button' : 'div'}></li>`).join('')}</ul>`
+          </${podeEnviarFoto() ? 'button' : 'div'}></li>`).join('')}</ul>`
       : '<div class="cartao vazio">Esta turma ainda não tem estudantes.</div>';
     if (filtro) $$('.caro-card', el).forEach((c) => { c.hidden = !c.dataset.nome.includes(filtro); });
     alunosAtuais = alunos;

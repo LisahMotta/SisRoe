@@ -94,7 +94,8 @@ export async function renderCadastro(el) {
           <label>Seu nome completo * <input name="adminNome" required maxlength="120"></label>
           <div class="grade-2">
             <label>Seu cargo
-              <select name="perfil"><option value="diretor">Diretor(a)</option><option value="vice">Vice-diretor(a)</option></select>
+              <select name="perfil"><option value="diretor">Diretor(a)</option><option value="vice">Vice-diretor(a)</option>
+                <option value="master">Usuário master (faz a configuração e ajuda a direção)</option></select>
             </label>
             <label>Seu usuário: RG ou CIN * <input name="login" required maxlength="30" autocapitalize="none" autocomplete="username" placeholder="ex.: 12.345.678-X"></label>
           </div>

@@ -28,14 +28,14 @@
     </div>
 
     <nav id="menu" class="menu">
-      <a href="#/nova" data-rota="nova" class="menu-destaque" data-icone="mais">Nova ocorrência</a>
-      <p class="menu-secao">Acompanhamento</p>
-      <a href="#/painel" data-rota="painel" data-icone="inicio">Início</a>
-      <a href="#/ocorrencias" data-rota="ocorrencias" data-icone="lista">Ocorrências</a>
+      <a href="#/nova" data-rota="nova" class="menu-destaque" data-nao-master data-icone="mais">Nova ocorrência</a>
+      <p class="menu-secao" data-nao-master>Acompanhamento</p>
+      <a href="#/painel" data-rota="painel" data-nao-master data-icone="inicio">Início</a>
+      <a href="#/ocorrencias" data-rota="ocorrencias" data-nao-master data-icone="lista">Ocorrências</a>
       <a href="#/carometro" data-rota="carometro" data-icone="pessoa">Carômetro</a>
       <a href="#/alunos" data-rota="alunos" data-gestao data-icone="alunos">Alunos</a>
       <a href="#/busca" data-rota="busca" data-busca-ativa data-icone="busca">Busca ativa</a>
-      <a href="#/equipe" data-rota="equipe" data-gestao data-icone="chave">Equipe e senhas</a>
+      <a href="#/equipe" data-rota="equipe" data-senhas data-icone="chave">Equipe e senhas</a>
       <p class="menu-secao" data-admin>Escola</p>
       <a href="#/admin" data-rota="admin" data-admin data-icone="admin">Administração</a>
       <p class="menu-secao">Ajuda</p>
@@ -60,7 +60,7 @@
     <header id="topo" class="topo" hidden>
       <button id="btn-menu" class="btn-icone" aria-label="Abrir menu" aria-expanded="false" aria-controls="lateral" data-icone="menu"></button>
       <span class="topo-marca"><span class="marca-icone pequeno" aria-hidden="true"></span><strong>SisRoe</strong></span>
-      <a href="#/nova" class="btn btn-primario btn-peq topo-nova" data-icone="mais">Nova</a>
+      <a href="#/nova" class="btn btn-primario btn-peq topo-nova" data-nao-master data-icone="mais">Nova</a>
     </header>
 
     <main id="conteudo" class="conteudo" tabindex="-1">
