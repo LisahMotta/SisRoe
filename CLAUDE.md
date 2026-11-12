@@ -61,5 +61,8 @@ Multi-school (multi-tenant) incident log. Express backend + vanilla JS SPA (ES m
 - Atenção especial (as in SisRoe Malba): gestão-only flag on `alunos` (`atencao_motivo/por/em`), routes in `alunos.js`
   (`/alunos-atencao`, `PUT|DELETE /alunos/:id/atencao`); shown in Alunos, history and occurrence detail for gestão only,
   never to professors, in the PDF or in the CSV.
+- Backup (gestão only, `#/backup`): `routes/backup.js` serves whitelisted tables (`TABELAS`) in pages of 500 without
+  secrets (`usuarios` only for admin); the browser builds the .xlsx (`public/js/planilha.js`, dependency-free stored ZIP)
+  and the .json. Photos/carômetro files are not included. Downloads are audited.
 - Integrity rules: the original relato is never edited (use notas), gravidade only goes up, ocorrências are cancelled
   (with a reason), never deleted.

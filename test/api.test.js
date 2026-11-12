@@ -728,3 +728,44 @@ test('Atenção especial: só a gestão sinaliza e vê; professor, agente e mast
   lista = (await api('/alunos-atencao', { token: coord })).dados;
   assert.equal(lista.length, 0);
 });
+
+test('Backup: só a gestão baixa, em páginas, sem senhas e sem dados de outra escola', async () => {
+  const E = await cadastrarEscola('escola-backup');
+  const outra = await cadastrarEscola('escola-backup-2');
+  const turma = (await api('/turmas', { token: E, metodo: 'POST', corpo: { nome: '1º EM A' } })).dados.id;
+  for (const [ini, qtd] of [[0, 300], [300, 220]]) {
+    await api(`/turmas/${turma}/importar`, { token: E, metodo: 'POST', corpo: { texto: Array.from({ length: qtd }, (_, i) => `${900000 + ini + i};Aluno Numero ${ini + i}`).join('\n') } });
+  }
+  await api('/turmas', { token: outra, metodo: 'POST', corpo: { nome: 'Turma da Outra' } });
+  const coord = await criarUsuario(E, 'escola-backup', '71111111', 'coordenador');
+  const prof = await criarUsuario(E, 'escola-backup', '72222222', 'professor');
+  const master = await criarUsuario(E, 'escola-backup', '73333333', 'master');
+  for (const t of [prof, master]) {
+    assert.equal((await api('/backup', { token: t })).status, 403);
+    assert.equal((await api('/backup/alunos', { token: t })).status, 403);
+  }
+  // Coordenação: tudo menos a equipe; direção: com a equipe.
+  const infoCoord = (await api('/backup', { token: coord })).dados;
+  assert.equal(infoCoord.tabelas.some((t) => t.nome === 'usuarios'), false);
+  assert.equal((await api('/backup/usuarios', { token: coord })).status, 404);
+  assert.equal((await api('/backup/escolas', { token: coord })).status, 404, 'só tabelas da lista');
+  assert.equal((await api('/backup/fotos_alunos', { token: coord })).status, 404);
+  const info = (await api('/backup', { token: E })).dados;
+  assert.equal(info.tabelas.find((t) => t.nome === 'alunos').registros, 520);
+  // Páginas de 500.
+  const p1 = (await api('/backup/alunos', { token: coord })).dados;
+  assert.equal(p1.linhas.length, 500);
+  assert.equal(p1.fim, false);
+  const p2 = (await api(`/backup/alunos?depois=${p1.linhas[499].id}`, { token: coord })).dados;
+  assert.equal(p2.linhas.length, 20);
+  assert.equal(p2.fim, true);
+  assert.equal(p1.linhas[0].escola_id, undefined);
+  // Equipe sem senha; turmas só da própria escola.
+  const equipe = (await api('/backup/usuarios', { token: E })).dados.linhas;
+  assert.ok(equipe.length >= 4);
+  assert.ok(equipe.every((u) => !('senha_hash' in u) && !('falhas_login' in u)));
+  const turmas = (await api('/backup/turmas', { token: E })).dados.linhas;
+  assert.deepEqual(turmas.map((t) => t.nome), ['1º EM A']);
+  assert.equal((await api('/backup/registrar', { token: coord, metodo: 'POST', corpo: { formato: 'xlsx' } })).status, 200);
+  assert.ok((await api('/auditoria', { token: E })).dados.some((a) => a.acao === 'backup_baixado'));
+});

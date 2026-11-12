@@ -34,6 +34,7 @@ const ROTAS = {
   guia: () => import('./telas/guia.js'),
   equipe: () => import('./telas/equipe.js'),
   busca: () => import('./telas/busca.js'),
+  backup: () => import('./telas/backup.js'),
 };
 const PUBLICAS = ['login', 'cadastro'];
 
@@ -102,7 +103,7 @@ async function roteador() {
       return navegar('#/tutorial');
     }
     // O master não acompanha ocorrências: a tela inicial dele é a Administração.
-    if (estado.usuario.perfil === 'master' && ['painel', 'nova', 'ocorrencias', 'ocorrencia', 'alunos', 'busca'].includes(rota)) {
+    if (estado.usuario.perfil === 'master' && ['painel', 'nova', 'ocorrencias', 'ocorrencia', 'alunos', 'busca', 'backup'].includes(rota)) {
       return navegar('#/admin');
     }
     montarTopo();

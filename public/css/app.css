@@ -753,3 +753,6 @@ body.tem-aviso-versao #avisos { top: 72px; }
 .aluno-linha { display: flex; align-items: center; gap: 8px; }
 .aluno-linha a { flex: 1; }
 .titulo-secao { font-size: 1rem; margin: 22px 0 10px; }
+
+/* Backup */
+.backup-botoes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 14px 0; }
