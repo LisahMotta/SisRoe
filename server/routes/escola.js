@@ -4,9 +4,9 @@ import express from 'express';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import * as db from '../db.js';
-import { exigeAdmin, ehAdmin } from '../auth.js';
+import { exigeAdmin, ehAdmin, exigeGestao } from '../auth.js';
 import { ErroHttp, txt, obrigatorio, senhaForte, MSG_SENHA, rota } from '../util.js';
-import { normalizarCodigo } from './publico.js';
+import { normalizarLogin } from './publico.js';
 import { PERFIS, CATEGORIAS, GRAVIDADES, MACROS } from '../../public/js/catalogo.js';
 import { atualizarProtocolo, passosDoTipo } from '../tipos.js';
 
@@ -15,12 +15,12 @@ const r = express.Router();
 // ─── Sessão ──────────────────────────────────────────────────────────────────
 r.get('/eu', rota(async (req, res) => {
   const escola = await db.one(
-    'SELECT id, nome, codigo, cie, municipio, diretoria, telefone, endereco FROM escolas WHERE id = ?',
+    'SELECT id, nome, codigo, cie, municipio, diretoria, telefone, endereco, modelo_whatsapp FROM escolas WHERE id = ?',
     [req.usuario.escola_id]
   );
   const u = req.usuario;
   res.json({
-    usuario: { id: u.id, nome: u.nome, login: u.login, perfil: u.perfil, trocar_senha: !!u.trocar_senha },
+    usuario: { id: u.id, nome: u.nome, login: u.login, perfil: u.perfil, trocar_senha: !!u.trocar_senha, tutorial_visto: !!u.tutorial_visto },
     escola,
   });
 }));
@@ -37,13 +37,20 @@ r.post('/minha-senha', rota(async (req, res) => {
   res.json({ ok: true });
 }));
 
+r.post('/tutorial-visto', rota(async (req, res) => {
+  await db.run('UPDATE usuarios SET tutorial_visto = 1 WHERE id = ? AND escola_id = ?', [req.usuario.id, req.usuario.escola_id]);
+  res.json({ ok: true });
+}));
+
 // ─── Escola ──────────────────────────────────────────────────────────────────
 r.put('/escola', exigeAdmin, rota(async (req, res) => {
   const e = req.body || {};
   await db.run(
-    'UPDATE escolas SET nome = ?, cie = ?, municipio = ?, diretoria = ?, telefone = ?, endereco = ? WHERE id = ?',
+    `UPDATE escolas SET nome = ?, cie = ?, municipio = ?, diretoria = ?, telefone = ?, endereco = ?,
+       modelo_whatsapp = COALESCE(?, modelo_whatsapp) WHERE id = ?`,
     [obrigatorio(e.nome, 'nome da escola', 150), txt(e.cie, 20), txt(e.municipio, 80), txt(e.diretoria, 120),
-     txt(e.telefone, 30), txt(e.endereco, 200), req.usuario.escola_id]
+     txt(e.telefone, 30), txt(e.endereco, 200), e.modelo_whatsapp !== undefined ? txt(e.modelo_whatsapp, 1000) : null,
+     req.usuario.escola_id]
   );
   await db.auditar(req.usuario.escola_id, req.usuario, 'escola_editada');
   res.json({ ok: true });
@@ -68,8 +75,8 @@ r.get('/usuarios', exigeAdmin, rota(async (req, res) => {
 r.post('/usuarios', exigeAdmin, rota(async (req, res) => {
   const b = req.body || {};
   const nome = obrigatorio(b.nome, 'nome', 120);
-  const login = normalizarCodigo(b.login);
-  if (login.length < 3) throw new ErroHttp(400, 'O usuário precisa ter ao menos 3 letras ou números (sem espaços).');
+  const login = normalizarLogin(b.login);
+  if (login.length < 3) throw new ErroHttp(400, 'O usuário precisa ter ao menos 3 letras ou números (sem espaços). Pode ser o RG ou a CIN.');
   if (!PERFIS[b.perfil]) throw new ErroHttp(400, 'Perfil inválido.');
   const eid = req.usuario.escola_id;
   if (await db.one('SELECT id FROM usuarios WHERE escola_id = ? AND login = ?', [eid, login])) {
@@ -102,17 +109,71 @@ r.put('/usuarios/:id', exigeAdmin, rota(async (req, res) => {
   res.json({ ok: true });
 }));
 
-r.post('/usuarios/:id/resetar-senha', exigeAdmin, rota(async (req, res) => {
+// Quem pode gerar nova senha provisória:
+//  • direção e vice-direção: qualquer usuário da escola;
+//  • coordenação e POC: professores e agentes de organização escolar.
+export const PERFIS_SENHA_PELA_GESTAO = ['professor', 'agente'];
+
+r.post('/usuarios/:id/resetar-senha', exigeGestao, rota(async (req, res) => {
   const eid = req.usuario.escola_id;
   const id = Number(req.params.id);
-  if (!(await db.one('SELECT id FROM usuarios WHERE id = ? AND escola_id = ?', [id, eid]))) {
-    throw new ErroHttp(404, 'Usuário não encontrado.');
+  const alvo = await db.one('SELECT id, perfil FROM usuarios WHERE id = ? AND escola_id = ?', [id, eid]);
+  if (!alvo) throw new ErroHttp(404, 'Usuário não encontrado.');
+  if (!ehAdmin(req.usuario) && !PERFIS_SENHA_PELA_GESTAO.includes(alvo.perfil)) {
+    throw new ErroHttp(403, 'Coordenação e POC podem gerar nova senha apenas para professores e agentes. Para outros perfis, procure a direção.');
   }
+  if (id === req.usuario.id) throw new ErroHttp(400, 'Para trocar a sua própria senha, use "Minha conta".');
   const provisoria = senhaProvisoria();
   await db.run('UPDATE usuarios SET senha_hash = ?, trocar_senha = 1 WHERE id = ? AND escola_id = ?',
     [await bcrypt.hash(provisoria, 10), id, eid]);
   await db.auditar(eid, req.usuario, 'senha_resetada', { id });
   res.json({ senhaProvisoria: provisoria });
+}));
+
+// Equipe (para coordenação e POC gerarem nova senha de professores/agentes).
+r.get('/equipe', exigeGestao, rota(async (req, res) => {
+  const todos = ehAdmin(req.usuario);
+  res.json(await db.all(
+    `SELECT id, nome, login, perfil, ativo, trocar_senha FROM usuarios WHERE escola_id = ? AND ativo = 1
+     ${todos ? '' : `AND perfil IN (${PERFIS_SENHA_PELA_GESTAO.map(() => '?').join(',')})`} ORDER BY nome`,
+    todos ? [req.usuario.escola_id] : [req.usuario.escola_id, ...PERFIS_SENHA_PELA_GESTAO]));
+}));
+
+/**
+ * Cadastro em lote a partir da lista enviada pela direção (nome + RG ou CIN).
+ * usuarios: [{ nome, documento, perfil? }]. O login é o documento (só números).
+ * senhaComum (opcional): mesma senha provisória para todos; sem ela, cada um ganha uma
+ * senha aleatória. Em qualquer caso, a troca é obrigatória no primeiro acesso.
+ */
+r.post('/usuarios/lote', exigeAdmin, rota(async (req, res) => {
+  const eid = req.usuario.escola_id;
+  const lista = Array.isArray(req.body?.usuarios) ? req.body.usuarios : [];
+  if (!lista.length) throw new ErroHttp(400, 'A lista está vazia.');
+  if (lista.length > 300) throw new ErroHttp(400, 'Envie no máximo 300 pessoas por vez.');
+  const senhaComum = req.body?.senhaComum ? String(req.body.senhaComum) : '';
+  if (senhaComum && !senhaForte(senhaComum)) throw new ErroHttp(400, MSG_SENHA);
+  const hashComum = senhaComum ? await bcrypt.hash(senhaComum, 10) : null;
+
+  const criados = [], ignorados = [];
+  const vistos = new Set();
+  for (const p of lista) {
+    const nome = txt(p.nome, 120).toUpperCase();
+    const login = normalizarLogin(p.documento);
+    const perfil = PERFIS[p.perfil] ? p.perfil : 'professor';
+    if (!nome || login.length < 5) { ignorados.push({ nome: nome || '(sem nome)', motivo: 'nome ou documento ausente' }); continue; }
+    if (vistos.has(login)) { ignorados.push({ nome, motivo: 'documento repetido na lista' }); continue; }
+    vistos.add(login);
+    if (await db.one('SELECT id FROM usuarios WHERE escola_id = ? AND login = ?', [eid, login])) {
+      ignorados.push({ nome, motivo: 'já cadastrado' }); continue;
+    }
+    const senha = senhaComum || senhaProvisoria();
+    await db.insert(
+      'INSERT INTO usuarios (escola_id, nome, login, perfil, senha_hash, ativo, trocar_senha, criado_em) VALUES (?,?,?,?,?,1,1,?)',
+      [eid, nome, login, perfil, hashComum || await bcrypt.hash(senha, 10), db.agora()]);
+    criados.push({ nome, login, perfil, senhaProvisoria: senha });
+  }
+  await db.auditar(eid, req.usuario, 'usuarios_importados', { criados: criados.length, ignorados: ignorados.length });
+  res.status(201).json({ criados, ignorados });
 }));
 
 // ─── Turmas ──────────────────────────────────────────────────────────────────

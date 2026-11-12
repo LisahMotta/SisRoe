@@ -4,8 +4,9 @@
 // render(conteudo, parametros) que desenha a tela dentro de <main>.
 // O endereço depois do "#" decide a tela: #/painel, #/ocorrencia/12 …
 import { api, getSessao, limparSessao } from './api.js';
-import { $, $$, esc, avisarErro, aplicarIcones } from './ui.js';
+import { $, $$, esc, avisarErro, aplicarIcones, fecharModal } from './ui.js';
 import { PERFIS, PERFIS_GESTAO, PERFIS_ADMIN } from './catalogo.js';
+import { iniciarAvisos, pararAvisos } from './notificacoes.js';
 
 // Dados carregados após o login e usados por várias telas.
 export const estado = { usuario: null, escola: null, turmas: [], tipos: [] };
@@ -24,6 +25,10 @@ const ROTAS = {
   alunos: () => import('./telas/alunos.js'),
   admin: () => import('./telas/admin.js'),
   conta: () => import('./telas/conta.js'),
+  carometro: () => import('./telas/carometro.js'),
+  tutorial: () => import('./telas/tutorial.js'),
+  equipe: () => import('./telas/equipe.js'),
+  busca: () => import('./telas/busca.js'),
 };
 const PUBLICAS = ['login', 'cadastro'];
 
@@ -59,6 +64,7 @@ function montarTopo() {
   $('#usuario-avatar').textContent = iniciais(u.nome);
   $$('[data-gestao]').forEach((el) => { el.hidden = !ehGestao(); });
   $$('[data-admin]').forEach((el) => { el.hidden = !ehAdmin(); });
+  if (!u.trocar_senha) iniciarAvisos(); // pop-ups de ocorrência nova / mensagem no chat
 }
 
 export function navegar(hash) {
@@ -67,6 +73,7 @@ export function navegar(hash) {
 }
 
 let renderizando = 0;
+let tutorialMostrado = false;
 async function roteador() {
   const [nome = '', ...params] = location.hash.replace(/^#\/?/, '').split('/');
   const rota = ROTAS[nome] ? nome : (getSessao() ? 'painel' : 'login');
@@ -80,6 +87,11 @@ async function roteador() {
       try { await carregarSessao(); } catch (e) { avisarErro(e); limparSessao(); return navegar('#/login'); }
     }
     if (estado.usuario.trocar_senha && rota !== 'trocar-senha') return navegar('#/trocar-senha');
+    // Primeiro acesso: o tutorial do perfil abre sozinho (uma vez por sessão, até a pessoa concluir).
+    if (!estado.usuario.trocar_senha && !estado.usuario.tutorial_visto && rota === 'painel' && !tutorialMostrado) {
+      tutorialMostrado = true;
+      return navegar('#/tutorial');
+    }
     montarTopo();
   } else {
     document.body.classList.remove('logado');
@@ -93,6 +105,7 @@ async function roteador() {
     if (ativo) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
   fecharMenu();
+  fecharModal(); // janela aberta numa tela não pode ficar por cima da próxima
   conteudo.innerHTML = '<p class="carregando">Carregando…</p>';
   try {
     const modulo = await ROTAS[rota]();
@@ -109,6 +122,7 @@ async function roteador() {
 }
 
 export function sair() {
+  pararAvisos();
   limparSessao();
   estado.usuario = null;
   estado.escola = null;

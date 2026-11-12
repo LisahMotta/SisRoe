@@ -3,6 +3,7 @@ import { api, baixar } from '../api.js';
 import { $, esc, dataBR, seloCategoria, seloGravidade, seloStatus, lerForm, avisarErro } from '../ui.js';
 import { estado, ehGestao } from '../app.js';
 import { CATEGORIAS, GRAVIDADES, STATUS } from '../catalogo.js';
+import { naoLidas } from '../notificacoes.js';
 
 // Os filtros ficam guardados enquanto a página estiver aberta.
 let filtrosSalvos = {};
@@ -58,7 +59,7 @@ export async function render(el) {
           <li class="occ cat-borda-${o.categoria}"><a href="#/ocorrencia/${o.id}">
             <div class="occ-topo"><span class="num">${esc(o.numero)}</span>
               <span>${dataBR(o.data)} ${esc(o.hora)}</span> ${seloStatus(o.status)}</div>
-            <strong>${esc(o.tipo_codigo)} · ${esc(o.tipo_descricao)}</strong>
+            <strong>${esc(o.tipo_codigo)} · ${esc(o.tipo_descricao)}${naoLidas[o.id] ? ` <span class="contador" title="Mensagens não lidas no chat">${naoLidas[o.id]}</span>` : ''}</strong>
             <div class="occ-info">${esc(o.turma_nome || 'Sem turma')} · ${esc(o.local)}
               ${o.alunos.length ? ` · <b>${esc(o.alunos.map((a) => a.nome).join(', '))}</b>` : ''}</div>
             <div class="occ-selos">${seloCategoria(o.categoria)} ${seloGravidade(o.gravidade)}

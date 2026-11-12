@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import { $, esc, lerForm, avisar, avisarErro, comCarregando } from '../ui.js';
 import { estado, navegar, sair, recarregarCadastros } from '../app.js';
 import { PERFIS } from '../catalogo.js';
+import { situacaoPush, ativarPush, desativarPush } from '../notificacoes.js';
 
 function formSenha(titulo, explicacao) {
   return `<form id="form-senha" class="cartao estreito" novalidate>
@@ -46,8 +47,33 @@ export async function render(el) {
         <dt>Escola</dt><dd>${esc(e.nome)} <small>(código de acesso: <b>${esc(e.codigo)}</b>)</small></dd>
       </dl>
     </div>
+    <section class="cartao estreito" id="push-caixa">
+      <h2>Notificações neste aparelho</h2>
+      <p class="carregando">Verificando…</p>
+    </section>
     ${formSenha('Trocar senha')}`;
   ligarForm(el, async () => {});
+  desenharPush($('#push-caixa', el));
+}
+
+// Ativar/desativar notificações do aparelho (chegam mesmo com o SisRoe fechado).
+async function desenharPush(caixa) {
+  const s = await situacaoPush().catch(() => ({ suportado: false }));
+  const texto = !s.suportado
+    ? 'Este navegador não aceita notificações. No iPhone, adicione o SisRoe à Tela de Início (Compartilhar → Adicionar à Tela de Início) e abra por lá.'
+    : !s.servidor
+      ? 'As notificações do aparelho ainda não foram configuradas no servidor. Enquanto isso, os avisos aparecem dentro do sistema, com o SisRoe aberto.'
+      : s.inscrito ? 'Ativadas. Você recebe aviso de ocorrências novas (equipe gestora) e de mensagens no chat, mesmo com o SisRoe fechado.'
+        : 'Receba aviso de ocorrências novas (equipe gestora) e de mensagens no chat, mesmo com o SisRoe fechado. Por privacidade, a notificação não mostra nomes de estudantes.';
+  caixa.innerHTML = `<h2>Notificações neste aparelho</h2><p class="ajuda">${esc(texto)}</p>
+    ${s.suportado && s.servidor ? `<button class="btn ${s.inscrito ? '' : 'btn-primario'}" id="btn-push">${s.inscrito ? 'Desativar neste aparelho' : 'Ativar notificações'}</button>` : ''}`;
+  $('#btn-push', caixa)?.addEventListener('click', (ev) => comCarregando(ev.currentTarget, async () => {
+    try {
+      if (s.inscrito) { await desativarPush(); avisar('Notificações desativadas neste aparelho.'); }
+      else { await ativarPush(); avisar('Notificações ativadas neste aparelho.'); }
+    } catch (e) { avisarErro(e); }
+    await desenharPush(caixa);
+  }));
 }
 
 export async function renderTrocaObrigatoria(el) {
@@ -57,6 +83,6 @@ export async function renderTrocaObrigatoria(el) {
   ligarForm(el, async () => {
     estado.usuario.trocar_senha = false;
     await recarregarCadastros();
-    navegar('#/painel');
+    navegar(estado.usuario.tutorial_visto ? '#/painel' : '#/tutorial');
   });
 }

@@ -174,3 +174,26 @@ export const TIPOS_ADMINISTRATIVOS = [
   { codigo: 'A15', macro: 'h', gravidade: 'media', descricao: 'Danificou material da escola ou de colega' },
   { codigo: 'A16', macro: 'h', gravidade: 'leve', descricao: 'Outra indisciplina (descrever no relato)' },
 ];
+
+// ─── Busca ativa ────────────────────────────────────────────────────────────
+export const STATUS_BUSCA = {
+  aberto: 'Em monitoramento',
+  contato: 'Família contatada',
+  retornou: 'Retornou às aulas',
+  conselho: 'Encaminhado ao Conselho Tutelar',
+  rede: 'Encaminhado à rede (CRAS/CREAS/Saúde)',
+  transferido: 'Transferido',
+  encerrado: 'Encerrado',
+};
+export const STATUS_BUSCA_FINAIS = ['retornou', 'transferido', 'encerrado'];
+export const TIPOS_ACAO_BUSCA = {
+  whatsapp: 'Mensagem por WhatsApp',
+  ligacao: 'Ligação telefônica',
+  visita: 'Visita domiciliar',
+  bilhete: 'Bilhete / comunicado',
+  reuniao: 'Reunião com a família',
+  conselho: 'Comunicação ao Conselho Tutelar',
+  rede: 'Encaminhamento à rede',
+  outro: 'Outra ação',
+};
+export const RISCOS_BUSCA = { baixo: 'Risco baixo', medio: 'Risco médio', alto: 'Risco alto' };

@@ -292,6 +292,7 @@ function etapaForm(etapa, el) {
       try {
         const r = await api('/ocorrencias', { metodo: 'POST', corpo });
         avisar(`Ocorrência ${r.numero} registrada.`);
+        try { sessionStorage.setItem('sisroe_recem', String(r.id)); } catch { /* sem armazenamento */ }
         navegar(`#/ocorrencia/${r.id}`);
       } catch (e) { avisarErro(e); }
     });

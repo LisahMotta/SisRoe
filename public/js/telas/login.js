@@ -1,6 +1,6 @@
 // telas/login.js — entrada no sistema e cadastro de uma escola nova.
 import { api, salvarSessao, ultimoCodigo } from '../api.js';
-import { $, esc, lerForm, avisar, avisarErro, comCarregando } from '../ui.js';
+import { $, esc, lerForm, avisar, avisarErro, comCarregando, abrirModal } from '../ui.js';
 import { estado, navegar } from '../app.js';
 
 export async function render(el) {
@@ -18,25 +18,32 @@ export async function render(el) {
       </div>
       <form id="form-login" class="cartao" novalidate>
         <h2>Entrar</h2>
-        <p class="sub">Use o código da sua escola e o seu usuário.</p>
+        <p class="sub">Use o código da sua escola e o número do seu RG ou da CIN.</p>
         <label>Código da escola
           <input name="codigo" required autocomplete="organization" autocapitalize="none" value="${esc(ultimoCodigo())}"
                  placeholder="ex.: ee-malba">
         </label>
-        <label>Usuário
-          <input name="login" required autocomplete="username" autocapitalize="none">
+        <label>Usuário (RG ou CIN)
+          <input name="login" required autocomplete="username" autocapitalize="none" placeholder="só os números, ex.: 12345678X">
         </label>
         <label>Senha
           <input name="senha" type="password" required autocomplete="current-password">
         </label>
         <button class="btn btn-primario btn-largo" type="submit">Entrar</button>
-        <p class="ajuda">Esqueceu a senha? Peça à direção da sua escola para gerar uma senha provisória.</p>
+        <p class="centro"><button type="button" class="btn-link" id="btn-esqueci" data-icone="chave">Esqueci minha senha</button></p>
         <p class="login-cadastro">Sua escola ainda não usa o SisRoe? <a href="#/cadastro">Cadastre a escola</a></p>
       </form>
     </section>`;
 
   const form = $('#form-login', el);
   if (form.codigo.value) form.login.focus();
+  // Por segurança não há troca de senha por e-mail: quem gera a senha provisória é a equipe gestora.
+  $('#btn-esqueci', el).addEventListener('click', () => abrirModal('Esqueci minha senha', `
+    <p>Procure a <b>direção</b> ou a <b>coordenação</b> da sua escola (ou o POC).</p>
+    <p>Eles geram uma <b>senha provisória</b> para você em poucos segundos. Ao entrar com ela, o sistema pede para você criar
+      uma senha nova, só sua.</p>
+    <p class="ajuda">Por segurança, o SisRoe não envia senhas por e-mail ou mensagem.</p>
+    <div class="acoes"><button class="btn btn-primario" data-fechar>Entendi</button></div>`));
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const d = lerForm(form);
@@ -89,7 +96,7 @@ export async function renderCadastro(el) {
             <label>Seu cargo
               <select name="perfil"><option value="diretor">Diretor(a)</option><option value="vice">Vice-diretor(a)</option></select>
             </label>
-            <label>Usuário * <input name="login" required maxlength="30" autocapitalize="none" autocomplete="username"></label>
+            <label>Seu usuário: RG ou CIN * <input name="login" required maxlength="30" autocapitalize="none" autocomplete="username" placeholder="ex.: 12.345.678-X"></label>
           </div>
           <div class="grade-2">
             <label>Senha * <input name="senha" type="password" required autocomplete="new-password"></label>

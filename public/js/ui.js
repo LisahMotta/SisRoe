@@ -120,8 +120,8 @@ export function imprimirAvulso(html) {
 
 /** Desativa o botão enquanto a ação roda (evita clique duplo = registro duplicado). */
 export async function comCarregando(botao, fn) {
-  const texto = botao?.textContent;
+  const original = botao?.innerHTML; // guarda o ícone junto com o texto
   if (botao) { botao.disabled = true; botao.textContent = 'Aguarde…'; }
   try { return await fn(); }
-  finally { if (botao) { botao.disabled = false; botao.textContent = texto; } }
+  finally { if (botao) { botao.disabled = false; botao.innerHTML = original; } }
 }

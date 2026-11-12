@@ -298,3 +298,151 @@ test('Protocolo 179 — 3ª versão: 50 situações, passos próprios, devolutiv
   // A ocorrência já registrada continua com seus passos.
   assert.equal((await api(`/ocorrencias/${r.dados.id}`, { token: A })).dados.passos.length, det.passos.length);
 });
+
+test('SED: importação de lista CSV (lida no navegador) com RA, contato e desativação de ausentes', async () => {
+  const linhas = [
+    { turma: '8º Ano B', nome: 'Eduarda Nunes', ra: '000123456789', ra_digito: '5', data_nascimento: '12/03/2012', responsavel: 'Rita Nunes', telefone: '(12) 98888-7777' },
+    { turma: '8º Ano B', nome: 'Felipe Ramos', ra: '000123456790', data_nascimento: '2012-05-01' },
+    { turma: '8º Ano B', nome: 'Gabi Torres', ra: '000123456791', telefone: 'abc' },
+  ];
+  assert.equal((await api('/alunos/importar-sed', { token: profA, metodo: 'POST', corpo: { linhas } })).status, 403);
+  const r1 = (await api('/alunos/importar-sed', { token: A, metodo: 'POST', corpo: { linhas } })).dados;
+  assert.deepEqual(r1, { turmasCriadas: 1, criados: 3, atualizados: 0, desativados: 0, ignorados: 0 });
+  // Segunda importação: RA sem zeros à esquerda é o mesmo aluno; Gabi saiu da lista e é desativada.
+  const r2 = (await api('/alunos/importar-sed', { token: A, metodo: 'POST', corpo: {
+    desativarAusentes: true, linhas: [{ turma: '8º Ano B', nome: 'Eduarda Nunes', ra: '123456789' }, { turma: '8º Ano B', nome: 'Felipe Ramos', ra: '123456790' }] } })).dados;
+  assert.equal(r2.atualizados, 2);
+  assert.equal(r2.desativados, 1);
+  const turma = (await api('/turmas', { token: A })).dados.find((t) => t.nome === '8º Ano B');
+  const alunos = (await api(`/alunos?turma_id=${turma.id}`, { token: A })).dados;
+  assert.equal(alunos.length, 2);
+  const edu = (await api(`/alunos/${alunos.find((a) => /EDUARDA/.test(a.nome)).id}`, { token: A })).dados;
+  assert.equal(edu.telefone, '12988887777', 'contato mantido (planilha nova veio sem telefone)');
+  assert.equal(edu.data_nascimento, '2012-03-12');
+  assert.equal((await api(`/alunos/${edu.id}`, { token: profA })).status, 403, 'contato é só da gestão');
+  assert.equal((await api(`/alunos/${edu.id}`, { token: B })).status, 404);
+  assert.equal((await api(`/alunos/${edu.id}/contato`, { token: A, metodo: 'PUT', corpo: { telefone: '123' } })).status, 400);
+});
+
+test('Carômetro: fotos por turma, só a gestão envia, isolamento entre escolas', async () => {
+  const foto = 'data:image/jpeg;base64,' + Buffer.from('foto-de-teste').toString('base64');
+  const aluno = alunosA[0];
+  assert.equal((await api(`/alunos/${aluno.id}/foto`, { token: profA, metodo: 'PUT', corpo: { imagem: foto } })).status, 403);
+  assert.equal((await api(`/alunos/${aluno.id}/foto`, { token: B, metodo: 'PUT', corpo: { imagem: foto } })).status, 404);
+  assert.equal((await api(`/alunos/${aluno.id}/foto`, { token: A, metodo: 'PUT', corpo: { imagem: 'data:text/html;base64,PGI+' } })).status, 400);
+  assert.equal((await api(`/alunos/${aluno.id}/foto`, { token: A, metodo: 'PUT', corpo: { imagem: foto } })).status, 200);
+  const c = (await api(`/turmas/${turmaA}/carometro`, { token: profA })).dados;
+  assert.equal(c.alunos.find((a) => a.id === aluno.id).foto, foto);
+  assert.equal((await api(`/turmas/${turmaA}/carometro`, { token: B })).status, 404);
+});
+
+test('Busca ativa: abrir caso, lote, WhatsApp/ações, situação e permissões', async () => {
+  const [a1, a2] = alunosA;
+  assert.equal((await api('/busca-ativa', { token: profA })).status, 403);
+  const r = await api('/busca-ativa', { token: A, metodo: 'POST', corpo: {
+    aluno_id: a1.id, faltas: 6, periodo_inicio: '2026-10-01', periodo_fim: '2026-10-10', responsavel: 'Mãe da Ana', telefone: '+55 (12) 99999-0000', risco: 'medio' } });
+  assert.equal(r.status, 201, JSON.stringify(r.dados));
+  assert.equal((await api('/busca-ativa', { token: A, metodo: 'POST', corpo: { aluno_id: a1.id, faltas: 2 } })).status, 409);
+  // O contato informado vai para o cadastro do aluno.
+  assert.equal((await api(`/alunos/${a1.id}`, { token: A })).dados.telefone, '12999990000');
+  const lote = (await api('/busca-ativa/lote', { token: A, metodo: 'POST', corpo: { itens: [{ aluno_id: a1.id, faltas: 1 }, { aluno_id: a2.id, faltas: 4 }] } })).dados;
+  assert.equal(lote.criados, 1);
+  assert.equal(lote.jaExistiam.length, 1);
+  // Escola B não usa aluno da A nem vê o caso.
+  assert.equal((await api('/busca-ativa', { token: B, metodo: 'POST', corpo: { aluno_id: a2.id } })).status, 400);
+  assert.equal((await api(`/busca-ativa/${r.dados.id}`, { token: B })).status, 404);
+  // Abrir o WhatsApp registra a ação e muda a situação para "família contatada".
+  const ac = (await api(`/busca-ativa/${r.dados.id}/acoes`, { token: A, metodo: 'POST', corpo: { tipo: 'whatsapp', resultado: 'Mensagem aberta no WhatsApp' } })).dados;
+  assert.equal(ac.status, 'contato');
+  await api(`/busca-ativa/${r.dados.id}`, { token: A, metodo: 'PUT', corpo: { status: 'retornou' } });
+  const det = (await api(`/busca-ativa/${r.dados.id}`, { token: A })).dados;
+  assert.equal(det.status, 'retornou');
+  assert.equal(det.acoes.length, 2);
+  // Casos encerrados saem da lista padrão.
+  assert.ok(!(await api('/busca-ativa', { token: A })).dados.some((b) => b.id === r.dados.id));
+  assert.ok((await api('/busca-ativa?status=todos', { token: A })).dados.some((b) => b.id === r.dados.id));
+});
+
+test('Chat da ocorrência e avisos para a gestão', async () => {
+  const profC = await criarUsuario(A, 'escola-a', 'prof3', 'professor');
+  const coord = await criarUsuario(A, 'escola-a', 'coord1', 'coordenador');
+  const inicio = (await api('/notificacoes', { token: coord })).dados;
+  const tipo = (await api('/tipos', { token: profC })).dados.find((t) => t.codigo === 'A1');
+  const occ = (await api('/ocorrencias', { token: profC, metodo: 'POST', corpo: {
+    tipo_id: tipo.id, data: '2026-11-09', hora: '08:00', local: 'Sala de aula', relato: 'Saiu da sala sem permissão durante a explicação.',
+    alunos: [{ id: alunosA[1].id }] } })).dados;
+  // A gestão recebe o aviso da nova ocorrência (pop-up).
+  const n1 = (await api(`/notificacoes?desde=${encodeURIComponent(inicio.agora)}&ultimaMsg=${inicio.ultimaMsg}`, { token: coord })).dados;
+  assert.ok(n1.novas.some((x) => x.id === occ.id));
+  // Professor que registrou escreve; coordenação lê e responde.
+  assert.equal((await api(`/ocorrencias/${occ.id}/chat`, { token: profC, metodo: 'POST', corpo: { texto: 'Preciso de apoio da coordenação.' } })).status, 201);
+  const n2 = (await api(`/notificacoes?desde=${encodeURIComponent(n1.agora)}&ultimaMsg=${n1.ultimaMsg}`, { token: coord })).dados;
+  assert.equal(n2.mensagens.length, 1);
+  assert.equal(n2.naoLidas[occ.id], 1);
+  const msgs = (await api(`/ocorrencias/${occ.id}/chat`, { token: coord })).dados;
+  assert.equal(msgs.length, 1);
+  assert.equal(msgs[0].minha, false);
+  assert.equal((await api('/notificacoes', { token: coord })).dados.naoLidas[occ.id], undefined, 'abrir o chat marca como lido');
+  await api(`/ocorrencias/${occ.id}/chat`, { token: coord, metodo: 'POST', corpo: { texto: 'Estou indo à sala.' } });
+  assert.equal((await api('/notificacoes', { token: profC })).dados.naoLidas[occ.id], 1);
+  // Outro professor e outra escola não entram no chat.
+  assert.equal((await api(`/ocorrencias/${occ.id}/chat`, { token: profA })).status, 404);
+  assert.equal((await api(`/ocorrencias/${occ.id}/chat`, { token: B, metodo: 'POST', corpo: { texto: 'x' } })).status, 404);
+  // Professor não recebe aviso de ocorrências dos outros.
+  assert.equal((await api(`/notificacoes?desde=${encodeURIComponent(inicio.agora)}`, { token: profA })).dados.novas.length, 0);
+  // Sem chaves VAPID, a notificação do sistema fica desligada (o pop-up continua).
+  assert.equal((await api('/push/chave', { token: coord })).dados.ativo, false);
+});
+
+test('PDF da ocorrência', async () => {
+  const id = (await api('/ocorrencias?status=todas', { token: A })).dados[0].id;
+  const r = await fetch(`${base}/ocorrencias/${id}/pdf`, { headers: { Authorization: `Bearer ${A}` } });
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('content-type'), 'application/pdf');
+  const buf = Buffer.from(await r.arrayBuffer());
+  assert.equal(buf.subarray(0, 5).toString(), '%PDF-');
+  assert.ok(buf.length > 2000);
+  assert.equal((await fetch(`${base}/ocorrencias/${id}/pdf`, { headers: { Authorization: `Bearer ${B}` } })).status, 404);
+});
+
+test('Usuários: lista com RG/CIN, senha provisória com troca obrigatória e nova senha pela coordenação/POC', async () => {
+  const lista = [
+    { nome: 'Paula Reis', documento: '12.345.678-X' },
+    { nome: 'Rui Alves', documento: '123.456.789-09', perfil: 'agente' },
+    { nome: 'Sem Doc', documento: '' },
+    { nome: 'Paula Reis 2', documento: '12345678x' },
+  ];
+  assert.equal((await api('/usuarios/lote', { token: profA, metodo: 'POST', corpo: { usuarios: lista } })).status, 403);
+  assert.equal((await api('/usuarios/lote', { token: A, metodo: 'POST', corpo: { usuarios: lista, senhaComum: 'fraca' } })).status, 400);
+  const r = (await api('/usuarios/lote', { token: A, metodo: 'POST', corpo: { usuarios: lista, senhaComum: 'Escola2026' } })).dados;
+  assert.equal(r.criados.length, 2);
+  assert.equal(r.ignorados.length, 2, 'sem documento e documento repetido');
+  assert.deepEqual(r.criados.map((c) => c.login), ['12345678x', '12345678909']);
+  assert.equal(r.criados[1].perfil, 'agente');
+  // Entra com o RG digitado com pontuação; a troca de senha é obrigatória.
+  const l = (await api('/login', { metodo: 'POST', corpo: { codigo: 'escola-a', login: '12.345.678-X', senha: 'Escola2026' } })).dados;
+  assert.equal(l.usuario.trocar_senha, true);
+  assert.equal((await api('/ocorrencias', { token: l.token })).status, 403);
+  await api('/minha-senha', { token: l.token, metodo: 'POST', corpo: { atual: 'Escola2026', nova: 'Paula2026x' } });
+  assert.equal((await api('/eu', { token: l.token })).dados.usuario.tutorial_visto, false);
+  await api('/tutorial-visto', { token: l.token, metodo: 'POST' });
+  assert.equal((await api('/eu', { token: l.token })).dados.usuario.tutorial_visto, true);
+  // A mensagem de erro de login orienta a procurar a direção/coordenação.
+  assert.match((await api('/login', { metodo: 'POST', corpo: { codigo: 'escola-a', login: '12345678x', senha: 'errada' } })).dados.erro, /direção ou a coordenação/);
+
+  // Coordenação gera nova senha para professor/agente, mas não para a direção.
+  const coord = await criarUsuario(A, 'escola-a', 'coord2', 'coordenador');
+  const poc = await criarUsuario(A, 'escola-a', 'poc1', 'poc');
+  const equipe = (await api('/equipe', { token: coord })).dados;
+  assert.ok(equipe.every((u) => ['professor', 'agente'].includes(u.perfil)));
+  const paula = equipe.find((u) => u.login === '12345678x');
+  const nova = await api(`/usuarios/${paula.id}/resetar-senha`, { token: poc, metodo: 'POST' });
+  assert.equal(nova.status, 200);
+  const l2 = (await api('/login', { metodo: 'POST', corpo: { codigo: 'escola-a', login: '12345678x', senha: nova.dados.senhaProvisoria } })).dados;
+  assert.equal(l2.usuario.trocar_senha, true, 'nova senha provisória exige troca');
+  const diretora = (await api('/usuarios', { token: A })).dados.find((u) => u.login === 'diretora');
+  assert.equal((await api(`/usuarios/${diretora.id}/resetar-senha`, { token: coord, metodo: 'POST' })).status, 403);
+  assert.equal((await api(`/usuarios/${paula.id}/resetar-senha`, { token: profA, metodo: 'POST' })).status, 403);
+  assert.equal((await api(`/usuarios/${paula.id}/resetar-senha`, { token: B, metodo: 'POST' })).status, 404);
+  assert.equal((await api('/usuarios', { token: coord })).status, 403, 'coordenação não administra usuários');
+});

@@ -9,6 +9,9 @@ import publico from './routes/publico.js';
 import escola from './routes/escola.js';
 import ocorrencias from './routes/ocorrencias.js';
 import medidas from './routes/medidas.js';
+import alunos from './routes/alunos.js';
+import busca from './routes/busca.js';
+import chat from './routes/chat.js';
 
 const raiz = path.dirname(fileURLToPath(import.meta.url));
 const pastaPublica = path.join(raiz, '..', 'public');
@@ -19,14 +22,15 @@ export async function criarApp() {
   app.set('trust proxy', 1); // o Render (e similares) fica atrás de um proxy
   app.use(helmet({
     contentSecurityPolicy: {
-      directives: { 'default-src': ["'self'"], 'img-src': ["'self'", 'data:'], 'script-src': ["'self'"] },
+      // blob: = foto escolhida no aparelho, lida antes de ser reduzida (carômetro).
+      directives: { 'default-src': ["'self'"], 'img-src': ["'self'", 'data:', 'blob:'], 'script-src': ["'self'"], 'manifest-src': ["'self'"] },
     },
   }));
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: '4mb' })); // listas da SED e fotos do carômetro
 
   // Rotas da API. As públicas vêm antes do "autenticar".
   app.use('/api', publico);
-  app.use('/api', autenticar, escola, ocorrencias, medidas);
+  app.use('/api', autenticar, escola, ocorrencias, medidas, alunos, busca, chat);
   app.use('/api', (req, res) => res.status(404).json({ erro: 'Rota não encontrada.' }));
 
   // Arquivos do site (HTML, CSS, JS).

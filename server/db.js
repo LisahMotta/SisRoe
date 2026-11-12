@@ -151,6 +151,75 @@ function schema() {
       criado_em TEXT NOT NULL,
       atualizado_em TEXT NOT NULL
     )`,
+    // Carômetro: foto do aluno guardada no próprio banco (hospedagem gratuita não tem disco permanente).
+    // A imagem chega já reduzida pelo navegador (cerca de 15 a 30 KB).
+    `CREATE TABLE IF NOT EXISTS fotos_alunos (
+      ${ID},
+      escola_id INTEGER NOT NULL,
+      aluno_id INTEGER NOT NULL,
+      mime TEXT NOT NULL,
+      dados TEXT NOT NULL,
+      enviado_por_nome TEXT,
+      atualizado_em TEXT NOT NULL,
+      UNIQUE (escola_id, aluno_id)
+    )`,
+    // Busca ativa: estudantes faltosos e as ações de contato com a família.
+    `CREATE TABLE IF NOT EXISTS busca_ativa (
+      ${ID},
+      escola_id INTEGER NOT NULL,
+      aluno_id INTEGER NOT NULL,
+      aluno_nome TEXT NOT NULL,
+      turma_nome TEXT,
+      faltas INTEGER NOT NULL DEFAULT 0,
+      periodo_inicio TEXT,
+      periodo_fim TEXT,
+      motivo TEXT,
+      risco TEXT NOT NULL DEFAULT 'baixo',
+      status TEXT NOT NULL DEFAULT 'aberto',
+      responsavel TEXT,
+      telefone TEXT,
+      observacoes TEXT,
+      aberto_por_nome TEXT NOT NULL,
+      criado_em TEXT NOT NULL,
+      atualizado_em TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS busca_ativa_acoes (
+      ${ID},
+      escola_id INTEGER NOT NULL,
+      busca_id INTEGER NOT NULL REFERENCES busca_ativa(id),
+      tipo TEXT NOT NULL,
+      resultado TEXT,
+      usuario_nome TEXT NOT NULL,
+      criado_em TEXT NOT NULL
+    )`,
+    // Chat da ocorrência entre quem registrou e a equipe gestora.
+    `CREATE TABLE IF NOT EXISTS chat_mensagens (
+      ${ID},
+      escola_id INTEGER NOT NULL,
+      ocorrencia_id INTEGER NOT NULL REFERENCES ocorrencias(id),
+      usuario_id INTEGER NOT NULL,
+      usuario_nome TEXT NOT NULL,
+      usuario_perfil TEXT NOT NULL,
+      texto TEXT NOT NULL,
+      criado_em TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS chat_leituras (
+      escola_id INTEGER NOT NULL,
+      ocorrencia_id INTEGER NOT NULL,
+      usuario_id INTEGER NOT NULL,
+      ultima_lida INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (ocorrencia_id, usuario_id)
+    )`,
+    // Inscrições de notificação (Web Push) de cada aparelho.
+    `CREATE TABLE IF NOT EXISTS push_inscricoes (
+      ${ID},
+      escola_id INTEGER NOT NULL,
+      usuario_id INTEGER NOT NULL,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      criado_em TEXT NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS auditoria (
       ${ID},
       escola_id INTEGER,
@@ -163,6 +232,8 @@ function schema() {
     'CREATE INDEX IF NOT EXISTS ix_occ_escola ON ocorrencias (escola_id, data)',
     'CREATE INDEX IF NOT EXISTS ix_occal_aluno ON ocorrencia_alunos (escola_id, aluno_id)',
     'CREATE INDEX IF NOT EXISTS ix_alunos_turma ON alunos (escola_id, turma_id)',
+    'CREATE INDEX IF NOT EXISTS ix_chat_occ ON chat_mensagens (escola_id, ocorrencia_id, id)',
+    'CREATE INDEX IF NOT EXISTS ix_busca_escola ON busca_ativa (escola_id, status)',
   ];
 }
 
@@ -186,6 +257,16 @@ const MIGRACOES = [
   'ALTER TABLE ocorrencias ADD COLUMN bo_regra TEXT',
   'ALTER TABLE ocorrencias ADD COLUMN bo_orientado INTEGER',
   'ALTER TABLE ocorrencias ADD COLUMN rede_devolutiva TEXT',
+  // Dados do aluno vindos da lista da SED e contato da família (busca ativa / WhatsApp).
+  'ALTER TABLE alunos ADD COLUMN ra_digito TEXT',
+  'ALTER TABLE alunos ADD COLUMN data_nascimento TEXT',
+  'ALTER TABLE alunos ADD COLUMN responsavel TEXT',
+  'ALTER TABLE alunos ADD COLUMN telefone TEXT',
+  'ALTER TABLE alunos ADD COLUMN telefone2 TEXT',
+  // Modelo da mensagem de WhatsApp da busca ativa (cada escola pode ajustar o texto).
+  'ALTER TABLE escolas ADD COLUMN modelo_whatsapp TEXT',
+  // Tutorial por perfil: mostrado automaticamente no primeiro acesso.
+  'ALTER TABLE usuarios ADD COLUMN tutorial_visto INTEGER NOT NULL DEFAULT 0',
 ];
 
 // Converte "?" em "$1, $2…" para o PostgreSQL.
