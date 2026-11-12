@@ -591,3 +591,62 @@ test('Aluno que não está na lista: professor, agente, GOE e secretaria incluem
   assert.equal(depois[0].id, incluido.id);
   assert.equal(depois[0].ra, '123123123');
 });
+
+test('Carômetro em arquivo (PDF/JPG em partes) e lista para fotos em lote', async () => {
+  const E = await cadastrarEscola('escola-caro');
+  const outra = await cadastrarEscola('escola-caro-2');
+  const turma = (await api('/turmas', { token: E, metodo: 'POST', corpo: { nome: '9º A' } })).dados.id;
+  const P = await criarUsuario(E, 'escola-caro', '41111111', 'professor');
+  // "PDF" de ~2,2 MB: vira 2 partes de base64.
+  const bytes = Buffer.alloc(2_200_000, 7); bytes.write('%PDF-1.4', 0);
+  const b64 = bytes.toString('base64');
+  const TAM = 2_800_000;
+  const partes = Math.ceil(b64.length / TAM);
+  assert.equal(partes, 2);
+  const meta = { turma_id: turma, nome_arquivo: 'carometro-9A.pdf', mime: 'application/pdf', tamanho: bytes.length, partes };
+  // Só a administração envia; tipo, tamanho e partes são conferidos; turma de outra escola é recusada.
+  assert.equal((await api('/carometros', { token: P, metodo: 'POST', corpo: meta })).status, 403);
+  assert.equal((await api('/carometros', { token: E, metodo: 'POST', corpo: { ...meta, mime: 'text/html' } })).status, 400);
+  assert.equal((await api('/carometros', { token: E, metodo: 'POST', corpo: { ...meta, partes: 5 } })).status, 400);
+  assert.equal((await api('/carometros', { token: E, metodo: 'POST', corpo: { ...meta, tamanho: 30 * 1024 * 1024, partes: 15 } })).status, 400);
+  assert.equal((await api('/carometros', { token: outra, metodo: 'POST', corpo: meta })).status, 404);
+  const { id } = (await api('/carometros', { token: E, metodo: 'POST', corpo: meta })).dados;
+  await api(`/carometros/${id}/partes/0`, { token: E, metodo: 'PUT', corpo: { dados: b64.slice(0, TAM) } });
+  // Incompleto: não conclui e não aparece na lista.
+  assert.equal((await api(`/carometros/${id}/concluir`, { token: E, metodo: 'POST' })).status, 400);
+  assert.equal((await api('/carometros', { token: P })).dados.length, 0);
+  assert.equal((await api(`/carometros/${id}/partes/1`, { token: outra, metodo: 'PUT', corpo: { dados: 'AAAA' } })).status, 404);
+  assert.equal((await api(`/carometros/${id}/partes/1`, { token: E, metodo: 'PUT', corpo: { dados: '<script>' } })).status, 400);
+  await api(`/carometros/${id}/partes/1`, { token: E, metodo: 'PUT', corpo: { dados: b64.slice(TAM) } });
+  assert.equal((await api(`/carometros/${id}/concluir`, { token: E, metodo: 'POST' })).status, 200);
+  // Professor vê e baixa (parte por parte), e o arquivo volta idêntico; outra escola não.
+  const lista = (await api('/carometros', { token: P })).dados;
+  assert.equal(lista.length, 1);
+  assert.equal(lista[0].turma_nome, '9º A');
+  const volta = [];
+  for (let i = 0; i < lista[0].partes; i++) volta.push((await api(`/carometros/${id}/partes/${i}`, { token: P })).dados.dados);
+  assert.ok(Buffer.from(volta.join(''), 'base64').equals(bytes));
+  assert.equal((await api(`/carometros/${id}/partes/0`, { token: outra })).status, 404);
+  assert.equal((await api('/carometros', { token: outra })).dados.length, 0);
+  // Um novo carômetro da mesma turma substitui o anterior; o "escola toda" convive.
+  const jpg = Buffer.from('fake-jpg').toString('base64');
+  for (const turmaId of [turma, null]) {
+    const n = (await api('/carometros', { token: E, metodo: 'POST', corpo: { turma_id: turmaId, nome_arquivo: 'folha.jpg', mime: 'image/jpeg', tamanho: 8, partes: 1 } })).dados;
+    await api(`/carometros/${n.id}/partes/0`, { token: E, metodo: 'PUT', corpo: { dados: jpg } });
+    assert.equal((await api(`/carometros/${n.id}/concluir`, { token: E, metodo: 'POST' })).status, 200);
+  }
+  const depois = (await api('/carometros', { token: E })).dados;
+  assert.equal(depois.length, 2);
+  assert.ok(depois.every((c) => c.mime === 'image/jpeg'));
+  assert.equal((await api(`/carometros/${id}/partes/0`, { token: E })).status, 404, 'o PDF antigo foi substituído');
+  // Remover: só a administração.
+  assert.equal((await api(`/carometros/${depois[0].id}`, { token: P, metodo: 'DELETE' })).status, 403);
+  assert.equal((await api(`/carometros/${depois[0].id}`, { token: E, metodo: 'DELETE' })).status, 200);
+  // Lista para fotos em lote: gestão/administração; professor não.
+  await api(`/turmas/${turma}/importar`, { token: E, metodo: 'POST', corpo: { texto: '123456789;Ana Souza' } });
+  const todos = (await api('/alunos-lista', { token: E })).dados;
+  assert.equal(todos.length, 1);
+  assert.equal(todos[0].tem_foto, 0);
+  assert.equal((await api('/alunos-lista', { token: P })).status, 403);
+  assert.equal((await api('/alunos-lista', { token: outra })).dados.length, 0);
+});

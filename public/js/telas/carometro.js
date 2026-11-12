@@ -2,42 +2,21 @@
 // Todos os servidores veem; a equipe gestora envia, troca ou remove fotos.
 // A foto é reduzida no próprio aparelho (máx. 360 px, JPEG) antes de ir para o servidor.
 import { api } from '../api.js';
-import { $, $$, esc, avisar, avisarErro, abrirModal, fecharModal, comCarregando } from '../ui.js';
+import { $, $$, esc, avisar, avisarErro, abrirModal, fecharModal, comCarregando, icone, dataHoraBR } from '../ui.js';
 import { estado, ehGestao, ehAdmin } from '../app.js';
+import { reduzirFoto, abrirCarometro, baixarArquivoCarometro, tamanhoLegivel } from '../imagem.js';
 
 const podeEnviarFoto = () => ehGestao() || ehAdmin();
 
 let turmaAtual = '';
 let filtro = '';
 let alunosAtuais = [];
+let arquivos = []; // carômetros em PDF/JPG enviados pela administração
 
 const iniciais = (n) => {
   const p = String(n).split(/\s+/).filter((x) => x.length > 2);
   return ((p[0]?.[0] || '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();
 };
-
-/** Reduz a imagem para no máximo `lado` px e devolve um data URL JPEG. */
-function reduzir(arquivo, lado = 360, qualidade = 0.82) {
-  return new Promise((ok, falha) => {
-    const url = URL.createObjectURL(arquivo);
-    const img = new Image();
-    img.onload = () => {
-      // Recorte central em retrato 3:4, como foto de documento.
-      const alvoProp = 3 / 4;
-      let sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
-      if (sw / sh > alvoProp) { const nw = sh * alvoProp; sx = (sw - nw) / 2; sw = nw; }
-      else { const nh = sw / alvoProp; sy = (sh - nh) / 2; sh = nh; }
-      const h = Math.min(lado / alvoProp, sh), w = h * alvoProp;
-      const c = document.createElement('canvas');
-      c.width = Math.round(w); c.height = Math.round(h);
-      c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url);
-      ok(c.toDataURL('image/jpeg', qualidade));
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); falha(new Error('Não foi possível ler esta imagem.')); };
-    img.src = url;
-  });
-}
 
 export async function render(el, [turmaParam]) {
   if (turmaParam) turmaAtual = turmaParam;
@@ -48,9 +27,27 @@ export async function render(el, [turmaParam]) {
         <select id="caro-turma" aria-label="Turma">${estado.turmas.map((t) => `<option value="${t.id}" ${String(t.id) === turmaAtual ? 'selected' : ''}>${esc(t.nome)}</option>`).join('')}</select>
         <input type="search" id="caro-busca" placeholder="Filtrar por nome" aria-label="Filtrar por nome" value="${esc(filtro)}">
       </div></div>
-    ${podeEnviarFoto() ? '<p class="ajuda">Toque num estudante para enviar ou trocar a foto. No celular, dá para tirar a foto na hora.</p>' : ''}
+    ${podeEnviarFoto() ? `<p class="ajuda">Toque num estudante para enviar ou trocar a foto. No celular, dá para tirar a foto na hora.
+      ${ehAdmin() ? ' Para enviar muitas fotos de uma vez ou o carômetro em PDF/JPG, use <a href="#/admin/carometro">Administração › Carômetro</a>.' : ''}</p>` : ''}
+    <div id="caro-arquivos"></div>
     <div id="caro-grade"></div>`;
+  try { arquivos = await api('/carometros'); } catch { arquivos = []; }
+  // Abrir/baixar o carômetro em arquivo (ouvinte único; a lista é redesenhada ao trocar de turma).
+  $('#caro-arquivos', el).addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-abrir], [data-baixar]');
+    if (!b) return;
+    const c = arquivos.find((x) => x.id === Number(b.dataset.abrir || b.dataset.baixar));
+    const original = b.innerHTML;
+    b.disabled = true;
+    const progresso = (p) => { b.textContent = `Carregando… ${Math.round(p * 100)}%`; };
+    try {
+      if (b.dataset.abrir) await abrirCarometro(c, progresso);
+      else await baixarArquivoCarometro(c, progresso);
+    } catch (e) { avisarErro(e); }
+    finally { b.disabled = false; b.innerHTML = original; }
+  });
   if (!estado.turmas.length) {
+    desenharArquivos(el);
     $('#caro-grade', el).innerHTML = '<div class="cartao vazio">Nenhuma turma cadastrada. A direção pode importar as listas da SED em Administração.</div>';
     return;
   }
@@ -69,7 +66,23 @@ export async function render(el, [turmaParam]) {
   await desenhar(el);
 }
 
+function desenharArquivos(el) {
+  const caixa = $('#caro-arquivos', el);
+  const daqui = arquivos.filter((c) => !c.turma_id || String(c.turma_id) === turmaAtual);
+  caixa.innerHTML = daqui.map((c) => `
+    <div class="cartao caro-arquivo">
+      <span class="caro-arquivo-ico">${icone(c.mime === 'application/pdf' ? 'documento' : 'camera')}</span>
+      <div><b>Carômetro ${c.turma_id ? `da turma ${esc(c.turma_nome || '')}` : 'da escola'} (${c.mime === 'application/pdf' ? 'PDF' : 'imagem'})</b>
+        <small>${esc(c.nome_arquivo)} · ${tamanhoLegivel(c.tamanho)} · enviado por ${esc(c.enviado_por_nome || '—')} em ${dataHoraBR(c.criado_em)}</small></div>
+      <div class="linha-btn">
+        <button type="button" class="btn btn-primario btn-peq" data-abrir="${c.id}">${icone('olho')}Abrir</button>
+        <button type="button" class="btn btn-peq" data-baixar="${c.id}">${icone('baixar')}Baixar</button>
+      </div>
+    </div>`).join('');
+}
+
 async function desenhar(el) {
+  desenharArquivos(el);
   const grade = $('#caro-grade', el);
   grade.innerHTML = '<p class="carregando">Carregando fotos…</p>';
   try {
@@ -111,7 +124,7 @@ function modalFoto(el, aluno) {
     const f = ev.target.files[0];
     if (!f) return;
     try {
-      novaFoto = await reduzir(f);
+      novaFoto = await reduzirFoto(f);
       $('#foto-previa', m).innerHTML = `<img src="${novaFoto}" alt="Prévia da nova foto">`;
       $('#foto-salvar', m).disabled = false;
     } catch (e) { avisarErro(e); }

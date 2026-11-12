@@ -12,6 +12,7 @@ import medidas from './routes/medidas.js';
 import alunos from './routes/alunos.js';
 import busca from './routes/busca.js';
 import chat from './routes/chat.js';
+import carometros from './routes/carometros.js';
 
 const raiz = path.dirname(fileURLToPath(import.meta.url));
 const pastaPublica = path.join(raiz, '..', 'public');
@@ -30,7 +31,7 @@ export async function criarApp() {
 
   // Rotas da API. As públicas vêm antes do "autenticar".
   app.use('/api', publico);
-  app.use('/api', autenticar, escola, ocorrencias, medidas, alunos, busca, chat);
+  app.use('/api', autenticar, escola, ocorrencias, medidas, alunos, busca, chat, carometros);
   app.use('/api', (req, res) => res.status(404).json({ erro: 'Rota não encontrada.' }));
 
   // Arquivos do site (HTML, CSS, JS).

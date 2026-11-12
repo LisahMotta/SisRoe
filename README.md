@@ -233,6 +233,10 @@ ou sem zeros à esquerda) são atualizados; com a opção marcada, quem saiu da 
 - **Aluno que não está na lista:** na Nova ocorrência, professor, agente, GOE, secretaria e gestão podem incluir o
   aluno na hora (nome e turma; **RA opcional**). A direção vê quem incluiu no histórico do aluno. Quando a lista da
   SED chega com o RA, o aluno é completado, sem duplicar.
+- **Carômetro em lote (Administração › Carômetro):** envio de várias fotos JPG/PNG de uma vez, ligadas ao aluno
+  pelo nome do arquivo (RA ou nome completo), e do carômetro pronto da turma em **PDF ou JPG** (até 20 MB), que
+  aparece para toda a equipe na tela Carômetro. O arquivo fica no banco, dividido em partes de ~2 MB (limite de
+  envio da Vercel). Atenção ao espaço do plano gratuito do Neon (0,5 GB): prefira um PDF por turma.
 - **Guia ilustrado “Como registrar uma ocorrência”** (`#/guia`): passo a passo com imagens das telas (escola
   fictícia), exemplo de relato bom e ruim e dúvidas comuns. Abre pelo Tutorial e pela tela Nova ocorrência, e pode
   ser impresso. As imagens ficam em `public/img/guia` e são refeitas com `node ferramentas/capturas-guia.mjs`.
