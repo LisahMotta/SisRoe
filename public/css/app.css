@@ -657,3 +657,9 @@ strong .contador { margin-left: 6px; vertical-align: 2px; }
   .rotulo-inline { flex-wrap: wrap; }
   .rotulo-inline select { min-width: 0; width: 100%; }
 }
+
+/* Aviso de nova versão publicada */
+.aviso-versao { position: fixed; left: 0; right: 0; top: 0; z-index: 120; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; background: var(--marinho); color: #fff; padding: 10px 16px; box-shadow: var(--sombra-m); font-size: .9rem; border-bottom: 3px solid #93b4ff; }
+body.tem-aviso-versao #avisos { top: 72px; }
+.aviso-versao .btn-primario { background: #fff; color: var(--primaria); border-color: #fff; }
+.aviso-versao .btn-primario:hover { background: var(--primaria-clara); color: var(--primaria-hover); }

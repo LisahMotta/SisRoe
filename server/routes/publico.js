@@ -6,6 +6,7 @@ import * as db from '../db.js';
 import { gerarToken } from '../auth.js';
 import { ErroHttp, txt, obrigatorio, senhaForte, MSG_SENHA, rota } from '../util.js';
 import { semearTipos } from '../tipos.js';
+import { VERSAO } from '../versao.js';
 
 const r = express.Router();
 
@@ -36,7 +37,8 @@ export function normalizarLogin(s) {
 
 // Informa ao navegador se o cadastro exige chave de convite.
 r.get('/config', (req, res) => {
-  res.json({ cadastroExigeChave: !!process.env.CADASTRO_CHAVE });
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ cadastroExigeChave: !!process.env.CADASTRO_CHAVE, versao: VERSAO });
 });
 
 // Cadastro de uma escola nova + primeiro usuário (direção).
