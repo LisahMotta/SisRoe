@@ -31,6 +31,7 @@ const ROTAS = {
   conta: () => import('./telas/conta.js'),
   carometro: () => import('./telas/carometro.js'),
   tutorial: () => import('./telas/tutorial.js'),
+  guia: () => import('./telas/guia.js'),
   equipe: () => import('./telas/equipe.js'),
   busca: () => import('./telas/busca.js'),
 };

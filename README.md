@@ -230,6 +230,12 @@ ou sem zeros à esquerda) são atualizados; com a opção marcada, quem saiu da 
 - **Tutorial por perfil:** no primeiro acesso, cada pessoa vê o passo a passo do seu perfil (professor, agente, POC,
   coordenação, vice, direção). Depois ele fica no menu **Tutorial**, onde a direção também pode ver e **imprimir**
   o tutorial de cada perfil para distribuir.
+- **Aluno que não está na lista:** na Nova ocorrência, professor, agente, GOE, secretaria e gestão podem incluir o
+  aluno na hora (nome e turma; **RA opcional**). A direção vê quem incluiu no histórico do aluno. Quando a lista da
+  SED chega com o RA, o aluno é completado, sem duplicar.
+- **Guia ilustrado “Como registrar uma ocorrência”** (`#/guia`): passo a passo com imagens das telas (escola
+  fictícia), exemplo de relato bom e ruim e dúvidas comuns. Abre pelo Tutorial e pela tela Nova ocorrência, e pode
+  ser impresso. As imagens ficam em `public/img/guia` e são refeitas com `node ferramentas/capturas-guia.mjs`.
 
 ### Usuário master
 

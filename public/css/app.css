@@ -663,3 +663,61 @@ strong .contador { margin-left: 6px; vertical-align: 2px; }
 body.tem-aviso-versao #avisos { top: 72px; }
 .aviso-versao .btn-primario { background: #fff; color: var(--primaria); border-color: #fff; }
 .aviso-versao .btn-primario:hover { background: var(--primaria-clara); color: var(--primaria-hover); }
+
+/* ─── Guia ilustrado de registro ─────────────────────────────────────────── */
+.guia-chamada { display: flex; align-items: center; gap: 14px; margin: 0 0 16px; text-decoration: none; color: inherit; border-left: 4px solid var(--primaria); }
+.guia-chamada:hover { background: var(--fundo-2, #f4f6fb); }
+.guia-chamada > .ico { color: var(--primaria); flex: none; width: 26px; height: 26px; }
+.guia-chamada span { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.guia-chamada small { color: var(--texto-2); }
+.guia-intro p { margin-bottom: 12px; }
+.guia-indice { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 4px 18px; font-size: .9rem; }
+.guia-indice button { background: none; border: 0; padding: 3px 0; text-align: left; color: var(--primaria); font: inherit; cursor: pointer; }
+.guia-indice button:hover { text-decoration: underline; }
+.guia .tut-passo { scroll-margin-top: 80px; }
+.guia-corpo h2 { margin: 4px 0 10px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+.guia-corpo h2 .ico { color: var(--primaria); }
+.guia-corpo p, .guia-lista, .guia-faq dd { color: var(--texto-2); font-size: .94rem; }
+.guia-corpo p { white-space: normal; margin-bottom: 8px; }
+.guia-corpo .alerta { margin-bottom: 10px; }
+.guia-fig { margin: 12px 0 14px; }
+.guia-fig a { display: block; cursor: zoom-in; }
+.guia-fig img { display: block; max-width: 100%; height: auto; border: 1px solid var(--borda); border-radius: 10px; box-shadow: 0 2px 10px rgba(15, 23, 42, .08); }
+.guia-lista { margin: 4px 0 10px 20px; }
+.guia-lista li { margin-bottom: 4px; }
+.guia-tabela { width: 100%; border-collapse: collapse; font-size: .9rem; margin: 8px 0 10px; }
+.guia-tabela th, .guia-tabela td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--borda); }
+.guia-tabela th { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--texto-2); }
+.guia-comparar { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+.guia-ruim, .guia-bom { border-radius: 10px; padding: 12px 14px; border: 1px solid; }
+.guia-ruim { background: #fef2f2; border-color: #fecaca; }
+.guia-bom { background: #f0fdf4; border-color: #bbf7d0; }
+.guia-ruim > b, .guia-bom > b { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.guia-ruim > b { color: #b91c1c; }
+.guia-bom > b { color: #15803d; }
+.guia-ruim p, .guia-bom p { font-style: italic; color: var(--texto); }
+.guia-ruim small, .guia-bom small { color: var(--texto-2); }
+.guia-faq dt { font-weight: 600; margin-top: 10px; }
+.guia-faq dd { margin: 2px 0 0; }
+@media (max-width: 720px) {
+  .guia .tut-passo { flex-direction: column; gap: 8px; }
+  .guia .tut-num { width: 28px; height: 28px; font-size: .85rem; }
+  .guia-lista { margin-left: 16px; }
+  .guia-comparar { grid-template-columns: 1fr; }
+  .guia-tabela thead { display: none; }
+  .guia-tabela tr { display: block; border-bottom: 1px solid var(--borda); padding: 6px 0; }
+  .guia-tabela td { display: block; border: 0; padding: 2px 0; }
+}
+@media print {
+  .guia-impresso section { break-inside: auto; }
+  .guia-impresso h2 { break-after: avoid; }
+  .guia-impresso .guia-fig { break-inside: avoid; }
+  .guia-impresso .guia-fig img { max-height: 340px; width: auto; box-shadow: none; }
+  .guia-impresso .guia-ruim, .guia-impresso .guia-bom { break-inside: avoid; }
+}
+
+/* Inclusão de aluno que não está na lista (Nova ocorrência) */
+.incluir-aluno { border: 1px dashed var(--borda); border-radius: 10px; padding: 12px 14px; margin-top: 12px; background: var(--superficie-2); }
+.incluir-aluno .rotulo { margin: 0 0 8px; }
+.incluir-aluno .linha-btn { align-items: center; flex-wrap: wrap; }
+.incluir-aluno label small { font-weight: 400; color: var(--texto-2); }

@@ -347,7 +347,7 @@ r.post('/ocorrencias/:id/cancelar', exigeDirecao, rota(async (req, res) => {
 r.get('/alunos/:id/historico', exigeGestao, rota(async (req, res) => {
   const eid = req.usuario.escola_id;
   const aluno = await db.one(
-    'SELECT a.id, a.ra, a.nome, t.nome AS turma_nome FROM alunos a LEFT JOIN turmas t ON t.id = a.turma_id WHERE a.id = ? AND a.escola_id = ?',
+    'SELECT a.id, a.ra, a.nome, a.incluido_por, a.incluido_em, t.nome AS turma_nome FROM alunos a LEFT JOIN turmas t ON t.id = a.turma_id WHERE a.id = ? AND a.escola_id = ?',
     [Number(req.params.id), eid]);
   if (!aluno) throw new ErroHttp(404, 'Aluno não encontrado.');
   const lista = await db.all(

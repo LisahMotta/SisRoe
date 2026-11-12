@@ -13,6 +13,7 @@ const ACESSO = {
 const REGISTRAR = {
   icone: 'mais',
   rota: '#/nova',
+  guia: true,
   titulo: 'Registrar uma ocorrência',
   texto: 'Clique em "Nova ocorrência" e siga os 3 passos: escolha a categoria (Emergência, Protocolo 179 ou Indisciplina), o tipo (dá para buscar digitando, ex.: "boné", "celular", "intervalo") e preencha data, local, turma, estudantes e o relato.\n'
     + 'No relato, descreva fatos: o que aconteceu, quem, onde e como, sem opiniões. O relato não pode ser editado depois (complementos entram como notas).\n'

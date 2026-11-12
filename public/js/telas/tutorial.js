@@ -29,6 +29,9 @@ export async function render(el, [perfilParam]) {
       <p>${esc(t.resumo)}</p>
       ${primeiraVez && perfil === meu ? '<p class="ajuda">Leia os passos abaixo (leva uns 3 minutos). Você pode voltar a este tutorial quando quiser, pelo menu "Tutorial".</p>' : ''}
     </section>
+    ${perfil !== 'master' ? `<a class="cartao guia-chamada" href="#/guia">
+      ${icone('livro')}<span><b>Guia ilustrado: como registrar uma ocorrência</b>
+      <small>Passo a passo com as telas do sistema, exemplos de relato e dúvidas comuns.</small></span>${icone('seta')}</a>` : ''}
     <ol class="tutorial">
       ${t.passos.map((p, i) => `
         <li class="cartao tut-passo">
@@ -36,7 +39,10 @@ export async function render(el, [perfilParam]) {
           <div class="tut-corpo">
             <h3>${p.icone ? icone(p.icone) : ''}${esc(p.titulo)}</h3>
             ${paragrafos(p.texto)}
-            ${p.rota && perfil === meu ? `<a class="btn-link" href="${p.rota}">Ir para a tela</a>` : ''}
+            <div class="linha-btn">
+              ${p.guia ? '<a class="btn-link" href="#/guia" data-icone="livro">Ver o guia ilustrado</a>' : ''}
+              ${p.rota && perfil === meu ? `<a class="btn-link" href="${p.rota}">Ir para a tela</a>` : ''}
+            </div>
           </div>
         </li>`).join('')}
     </ol>

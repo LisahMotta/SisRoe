@@ -17,7 +17,8 @@ export async function render(el) {
 
 function desenhar(el) {
   el.innerHTML = `
-    <div class="cab-tela"><h1>Nova ocorrência</h1></div>
+    <div class="cab-tela"><h1>Nova ocorrência</h1>
+      <a class="btn-link" href="#/guia" data-icone="livro">Como registrar? Veja o guia</a></div>
     <ol class="passos" aria-label="Etapas">
       <li class="${passo >= 1 ? 'feito' : ''}">Categoria</li>
       <li class="${passo >= 2 ? 'feito' : ''}">Tipo</li>
@@ -148,14 +149,26 @@ function etapaForm(etapa, el) {
           </select>
         </label>
         <div id="alunos-turma" class="alunos-turma"></div>
-        <details class="mais-alunos">
-          <summary>Aluno de outra turma ou sem cadastro</summary>
-          <div class="grade-2">
-            <label>Buscar aluno na escola <input type="search" id="busca-aluno" placeholder="nome ou RA"></label>
-            <label>Ou digite o nome <span class="linha-btn"><input id="nome-livre" maxlength="120">
-              <button type="button" class="btn" id="add-livre">Adicionar</button></span></label>
-          </div>
+        <details class="mais-alunos" id="det-mais-alunos">
+          <summary>Aluno de outra turma ou que não está na lista</summary>
+          <label>Buscar aluno na escola <input type="search" id="busca-aluno" placeholder="nome ou RA"></label>
           <ul id="resultado-busca" class="resultado-busca"></ul>
+          <div class="incluir-aluno">
+            <p class="rotulo">Não encontrou? Inclua o aluno na lista da escola:</p>
+            <div class="grade-3">
+              <label>Nome completo * <input id="novo-nome" maxlength="120" autocomplete="off"></label>
+              <label>Turma
+                <select id="novo-turma">
+                  <option value="">— sem turma —</option>
+                  ${estado.turmas.map((t) => `<option value="${t.id}">${esc(t.nome)}${t.periodo ? ` (${esc(t.periodo)})` : ''}</option>`).join('')}
+                </select></label>
+              <label>RA <small>(opcional)</small> <input id="novo-ra" inputmode="numeric" maxlength="20" autocomplete="off"></label>
+            </div>
+            <div class="linha-btn">
+              <button type="button" class="btn" id="btn-incluir-aluno" data-icone="mais">Incluir aluno</button>
+              <small class="ajuda">Não sabe o RA? Deixe em branco: ele é completado quando a lista da SED for atualizada.</small>
+            </div>
+          </div>
         </details>
         <div id="selecionados"></div>
       </fieldset>
@@ -194,6 +207,7 @@ function etapaForm(etapa, el) {
 
   // Alunos da turma escolhida
   $('#sel-turma', etapa).addEventListener('change', async (ev) => {
+    $('#novo-turma', etapa).value = ev.target.value; // aluno incluído vai, por padrão, para a turma escolhida
     const caixa = $('#alunos-turma', etapa);
     if (!ev.target.value) { caixa.innerHTML = ''; return; }
     caixa.innerHTML = '<p class="carregando">Carregando alunos…</p>';
@@ -205,7 +219,7 @@ function etapaForm(etapa, el) {
            <div class="grade-alunos">${alunos.map((a) => `
             <label class="check"><input type="checkbox" data-aluno='${esc(JSON.stringify({ id: a.id, nome: a.nome, ra: a.ra, turma_nome: turmaNome }))}'
               ${selecionados.has('id' + a.id) ? 'checked' : ''}> ${esc(a.nome)}</label>`).join('')}</div>`
-        : '<p class="vazio">Esta turma ainda não tem alunos cadastrados. Use "Aluno de outra turma ou sem cadastro".</p>';
+        : '<p class="vazio">Esta turma ainda não tem alunos cadastrados. Use "Aluno de outra turma ou que não está na lista".</p>';
       const filtro = $('.filtro-alunos', caixa);
       filtro?.addEventListener('input', () => {
         const q = filtro.value.toLowerCase();
@@ -233,7 +247,11 @@ function etapaForm(etapa, el) {
       try {
         const r = await api(`/alunos?busca=${encodeURIComponent(q)}`);
         ul.innerHTML = r.length ? r.map((a) => `<li><button type="button" data-add='${esc(JSON.stringify({ id: a.id, nome: a.nome, ra: a.ra, turma_nome: a.turma_nome }))}'>
-            ${esc(a.nome)} <small>${esc(a.turma_nome || '')}</small></button></li>`).join('') : '<li class="vazio">Nenhum aluno encontrado.</li>';
+            ${esc(a.nome)} <small>${esc(a.turma_nome || '')}</small></button></li>`).join('')
+          : '<li class="vazio">Nenhum aluno encontrado. Inclua o aluno logo abaixo.</li>';
+        // Sem resultado: já leva o que foi digitado para o campo de inclusão (se for um nome).
+        const novoNome = $('#novo-nome', etapa);
+        if (!r.length && !/\d/.test(q) && !novoNome.value) novoNome.value = q.toUpperCase();
       } catch (e) { avisarErro(e); }
     }, 300);
   });
@@ -244,13 +262,26 @@ function etapaForm(etapa, el) {
     selecionados.set('id' + a.id, { ...a, papel: 'envolvido' });
     desenharSelecionados(etapa);
   });
-  $('#add-livre', etapa).addEventListener('click', () => {
-    const inp = $('#nome-livre', etapa);
-    const nome = inp.value.trim();
-    if (!nome) return;
-    selecionados.set('livre' + Date.now(), { nome: nome.toUpperCase(), papel: 'envolvido' });
-    inp.value = '';
-    desenharSelecionados(etapa);
+  // Inclui na lista da escola o aluno que não estava cadastrado (RA opcional) e já o seleciona.
+  $('#btn-incluir-aluno', etapa).addEventListener('click', async (ev) => {
+    const nome = $('#novo-nome', etapa).value.trim();
+    if (nome.length < 3) { avisar('Digite o nome completo do aluno.', 'erro'); $('#novo-nome', etapa).focus(); return; }
+    await comCarregando(ev.currentTarget, async () => {
+      try {
+        const a = await api('/alunos', { metodo: 'POST', corpo: {
+          nome, turma_id: $('#novo-turma', etapa).value || null, ra: $('#novo-ra', etapa).value.trim() } });
+        selecionados.set('id' + a.id, { id: a.id, nome: a.nome, ra: a.ra, turma_nome: a.turma_nome, papel: 'envolvido' });
+        $('#novo-nome', etapa).value = '';
+        $('#novo-ra', etapa).value = '';
+        $('#busca-aluno', etapa).value = '';
+        $('#resultado-busca', etapa).innerHTML = '';
+        avisar(a.ja_existia ? `${a.nome} já estava na lista e foi selecionado(a).` : `${a.nome} foi incluído(a) na lista e selecionado(a).`);
+        desenharSelecionados(etapa);
+        // Se é da turma aberta acima, recarrega a turma para o nome aparecer marcado.
+        const sel = $('#sel-turma', etapa);
+        if (a.turma_id && String(a.turma_id) === sel.value) sel.dispatchEvent(new Event('change'));
+      } catch (e) { avisarErro(e); }
+    });
   });
 
   // Papel de cada aluno / remover

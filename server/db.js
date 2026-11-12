@@ -267,6 +267,9 @@ const MIGRACOES = [
   'ALTER TABLE escolas ADD COLUMN modelo_whatsapp TEXT',
   // Tutorial por perfil: mostrado automaticamente no primeiro acesso.
   'ALTER TABLE usuarios ADD COLUMN tutorial_visto INTEGER NOT NULL DEFAULT 0',
+  // Aluno incluído na hora do registro por quem não achou o nome na lista (RA opcional).
+  'ALTER TABLE alunos ADD COLUMN incluido_por TEXT',
+  'ALTER TABLE alunos ADD COLUMN incluido_em TEXT',
 ];
 
 // Converte "?" em "$1, $2…" para o PostgreSQL.

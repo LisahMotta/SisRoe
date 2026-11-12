@@ -281,9 +281,13 @@ r.post('/turmas/:id/importar', exigeAdmin, rota(async (req, res) => {
       else nome = partes.join(' ');
       nome = nome.slice(0, 120).toUpperCase();
       if (!nome) continue;
-      const existe = ra ? await tx.one('SELECT id FROM alunos WHERE escola_id = ? AND ra = ?', [eid, ra]) : null;
+      // Pelo RA; senão, um aluno de mesmo nome incluído sem RA na hora de um registro (recebe o RA agora).
+      const existe = ra
+        ? (await tx.one('SELECT id FROM alunos WHERE escola_id = ? AND ra = ?', [eid, ra])
+          || await tx.one("SELECT id FROM alunos WHERE escola_id = ? AND nome = ? AND (ra IS NULL OR ra = '')", [eid, nome]))
+        : null;
       if (existe) {
-        await tx.run('UPDATE alunos SET nome = ?, turma_id = ?, ativo = 1 WHERE id = ?', [nome, turma.id, existe.id]);
+        await tx.run('UPDATE alunos SET nome = ?, turma_id = ?, ra = ?, ativo = 1 WHERE id = ? AND escola_id = ?', [nome, turma.id, ra, existe.id, eid]);
         atualizados++;
       } else {
         await tx.insert('INSERT INTO alunos (escola_id, turma_id, ra, nome, ativo) VALUES (?,?,?,?,1)',
