@@ -34,7 +34,13 @@ export async function criarApp() {
   app.use('/api', (req, res) => res.status(404).json({ erro: 'Rota não encontrada.' }));
 
   // Arquivos do site (HTML, CSS, JS).
-  app.use(express.static(pastaPublica, { extensions: ['html'] }));
+  // Páginas e scripts sempre conferidos com o servidor (evita ficar com versão antiga após atualizar).
+  app.use(express.static(pastaPublica, {
+    extensions: ['html'],
+    setHeaders: (res, arquivo) => {
+      if (/\.(html|js|css|json)$/.test(arquivo)) res.setHeader('Cache-Control', 'no-cache');
+    },
+  }));
   app.get('*', (req, res) => res.sendFile(path.join(pastaPublica, 'index.html')));
 
   // Tratamento de erros: sempre responde JSON com a mensagem em português.

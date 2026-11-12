@@ -7,6 +7,7 @@ import { api, getSessao, limparSessao } from './api.js';
 import { $, $$, esc, avisarErro, aplicarIcones, fecharModal } from './ui.js';
 import { PERFIS, PERFIS_GESTAO, PERFIS_ADMIN, PERFIS_BUSCA, PERFIS_DIRECAO } from './catalogo.js';
 import { iniciarAvisos, pararAvisos } from './notificacoes.js';
+import { iniciarVerificacaoVersao } from './versao.js';
 
 // Dados carregados após o login e usados por várias telas.
 export const estado = { usuario: null, escola: null, turmas: [], tipos: [] };
@@ -170,3 +171,4 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharMenu
 $('#btn-sair').addEventListener('click', sair);
 window.addEventListener('hashchange', roteador);
 roteador();
+iniciarVerificacaoVersao();
