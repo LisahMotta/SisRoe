@@ -135,6 +135,40 @@ r.post('/alunos', rota(async (req, res) => {
   res.status(201).json({ id, ra, nome, turma_id: turma?.id || null, turma_nome: turma?.nome || null });
 }));
 
+// ─── Atenção especial ────────────────────────────────────────────────────────
+// A equipe gestora (POC, coordenação, vice e direção) sinaliza o aluno que precisa de acompanhamento
+// mais próximo. Só a gestão vê a sinalização: não aparece para professores, no PDF nem na exportação.
+r.get('/alunos-atencao', exigeGestao, rota(async (req, res) => {
+  const eid = req.usuario.escola_id;
+  const lista = await db.all(
+    `SELECT a.id, a.nome, a.ra, a.atencao_motivo, a.atencao_por, a.atencao_em, t.nome AS turma_nome,
+       (SELECT COUNT(*) FROM ocorrencia_alunos x JOIN ocorrencias o ON o.id = x.ocorrencia_id
+        WHERE x.aluno_id = a.id AND x.escola_id = a.escola_id AND o.status <> 'cancelada') AS qtd_ocorrencias
+     FROM alunos a LEFT JOIN turmas t ON t.id = a.turma_id
+     WHERE a.escola_id = ? AND a.ativo = 1 AND a.atencao_em IS NOT NULL ORDER BY a.atencao_em DESC`, [eid]);
+  res.json(lista.map((a) => ({ ...a, qtd_ocorrencias: Number(a.qtd_ocorrencias) })));
+}));
+
+r.put('/alunos/:id/atencao', exigeGestao, rota(async (req, res) => {
+  const eid = req.usuario.escola_id;
+  const a = await db.one('SELECT id, nome FROM alunos WHERE id = ? AND escola_id = ?', [Number(req.params.id), eid]);
+  if (!a) throw new ErroHttp(404, 'Aluno não encontrado.');
+  const motivo = txt(req.body?.motivo, 500);
+  await db.run('UPDATE alunos SET atencao_motivo = ?, atencao_por = ?, atencao_em = ? WHERE id = ? AND escola_id = ?',
+    [motivo || null, req.usuario.nome, db.agora(), a.id, eid]);
+  await db.auditar(eid, req.usuario, 'aluno_sinalizado', { aluno: a.id, nome: a.nome, motivo });
+  res.json({ ok: true });
+}));
+
+r.delete('/alunos/:id/atencao', exigeGestao, rota(async (req, res) => {
+  const eid = req.usuario.escola_id;
+  const a = await db.one('SELECT id, nome FROM alunos WHERE id = ? AND escola_id = ?', [Number(req.params.id), eid]);
+  if (!a) throw new ErroHttp(404, 'Aluno não encontrado.');
+  await db.run('UPDATE alunos SET atencao_motivo = NULL, atencao_por = NULL, atencao_em = NULL WHERE id = ? AND escola_id = ?', [a.id, eid]);
+  await db.auditar(eid, req.usuario, 'sinalizacao_removida', { aluno: a.id, nome: a.nome });
+  res.json({ ok: true });
+}));
+
 // Dados do aluno com contato da família (equipe gestora).
 r.get('/alunos/:id', exigeGestao, rota(async (req, res) => {
   const a = await db.one(

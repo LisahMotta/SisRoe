@@ -22,6 +22,16 @@ const limiteCadastro = rateLimit({
   skip: () => process.env.NODE_ENV === 'test',
 });
 
+// Bloqueio por usuário: o limite por endereço (acima) fica na memória de cada instância da Vercel,
+// então quem insiste a partir de vários endereços ainda esbarraria neste, que fica no banco.
+export const MAX_FALHAS = 8;
+const BLOQUEIO_MIN = 15;
+// Hash de uma senha qualquer: comparado quando o usuário não existe, para a resposta demorar o mesmo
+// tempo (senão daria para descobrir quais logins existem pela demora).
+const HASH_FALSO = bcrypt.hashSync('senha-que-ninguem-usa-0', 10);
+// Cadastros de escola por dia (todas juntas): protege o banco gratuito contra robôs. 0 = sem limite.
+const LIMITE_CADASTROS_DIA = Number(process.env.LIMITE_CADASTROS_DIA ?? 50);
+
 export const normalizarCodigo = (s) => txt(s, 30).toLowerCase().replace(/[^a-z0-9-]/g, '');
 
 /**
@@ -46,6 +56,15 @@ r.post('/escolas', limiteCadastro, rota(async (req, res) => {
   const b = req.body || {};
   if (process.env.CADASTRO_CHAVE && b.chave !== process.env.CADASTRO_CHAVE) {
     throw new ErroHttp(403, 'Chave de cadastro inválida. Peça a chave a quem administra o sistema.');
+  }
+  // Campo invisível para pessoas: só robôs preenchem.
+  if (b.site) throw new ErroHttp(400, 'Não foi possível concluir o cadastro.');
+  if (LIMITE_CADASTROS_DIA > 0) {
+    const ontem = new Date(Date.now() - 86400000).toISOString();
+    const { qtd } = await db.one('SELECT COUNT(*) AS qtd FROM escolas WHERE criado_em > ?', [ontem]);
+    if (Number(qtd) >= LIMITE_CADASTROS_DIA) {
+      throw new ErroHttp(429, 'Muitas escolas foram cadastradas hoje. Tente de novo amanhã.');
+    }
   }
   const e = b.escola || {};
   const a = b.admin || {};
@@ -89,9 +108,24 @@ r.post('/login', limiteLogin, rota(async (req, res) => {
   const falha = () => { throw new ErroHttp(401, 'Código da escola, usuário ou senha incorretos. Se esqueceu a senha, procure a direção ou a coordenação da escola.'); };
 
   const escola = await db.one('SELECT id, nome FROM escolas WHERE codigo = ?', [codigo]);
-  if (!escola) falha();
-  const u = await db.one('SELECT * FROM usuarios WHERE escola_id = ? AND login = ?', [escola.id, login]);
-  if (!u || !u.ativo || !(await bcrypt.compare(senha, u.senha_hash))) falha();
+  const u = escola ? await db.one('SELECT * FROM usuarios WHERE escola_id = ? AND login = ?', [escola.id, login]) : null;
+  if (u?.bloqueado_ate && u.bloqueado_ate > db.agora()) {
+    throw new ErroHttp(429, `Muitas tentativas com senha errada para este usuário. Aguarde ${BLOQUEIO_MIN} minutos ou peça à direção ou à coordenação uma nova senha.`);
+  }
+  const senhaOk = await bcrypt.compare(senha, u?.senha_hash || HASH_FALSO);
+  if (!u || !u.ativo || !senhaOk) {
+    if (u && u.ativo) {
+      const falhas = Number(u.falhas_login || 0) + 1;
+      const bloquear = falhas >= MAX_FALHAS;
+      await db.run('UPDATE usuarios SET falhas_login = ?, bloqueado_ate = ? WHERE id = ? AND escola_id = ?',
+        [bloquear ? 0 : falhas, bloquear ? new Date(Date.now() + BLOQUEIO_MIN * 60000).toISOString() : null, u.id, escola.id]);
+      if (bloquear) await db.auditar(escola.id, u, 'login_bloqueado', { tentativas: MAX_FALHAS });
+    }
+    falha();
+  }
+  if (u.falhas_login || u.bloqueado_ate) {
+    await db.run('UPDATE usuarios SET falhas_login = 0, bloqueado_ate = NULL WHERE id = ? AND escola_id = ?', [u.id, escola.id]);
+  }
 
   await db.auditar(escola.id, u, 'login');
   res.json({

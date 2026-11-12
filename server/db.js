@@ -292,6 +292,13 @@ const MIGRACOES = [
   // Aluno incluído na hora do registro por quem não achou o nome na lista (RA opcional).
   'ALTER TABLE alunos ADD COLUMN incluido_por TEXT',
   'ALTER TABLE alunos ADD COLUMN incluido_em TEXT',
+  // Bloqueio do usuário após muitas senhas erradas (vale entre instâncias da Vercel).
+  'ALTER TABLE usuarios ADD COLUMN falhas_login INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE usuarios ADD COLUMN bloqueado_ate TEXT',
+  // Aluno sinalizado para atenção especial pela equipe gestora (como no SisRoe da Malba).
+  'ALTER TABLE alunos ADD COLUMN atencao_motivo TEXT',
+  'ALTER TABLE alunos ADD COLUMN atencao_por TEXT',
+  'ALTER TABLE alunos ADD COLUMN atencao_em TEXT',
 ];
 
 // Converte "?" em "$1, $2…" para o PostgreSQL.

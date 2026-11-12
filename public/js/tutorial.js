@@ -67,6 +67,23 @@ const ACOMPANHAR = {
     + '• encerre só quando todas as providências estiverem concluídas.',
 };
 
+const ATENCAO = {
+  icone: 'alerta',
+  rota: '#/alunos',
+  titulo: 'Sinalizar aluno para atenção especial',
+  texto: 'Em "Alunos", busque o estudante e clique em "Sinalizar" (ou, no histórico dele, em "Sinalizar para atenção especial"). Informe o motivo, se quiser.\n'
+    + 'Ele entra na lista "Alunos com atenção especial", com o motivo, quem sinalizou e quantas ocorrências tem, e aparece com um aviso nas ocorrências em que estiver.\n'
+    + 'Só POC, coordenação, vice e direção veem a sinalização: ela não aparece para professores nem nos documentos impressos. Descreva fatos, sem rótulos.',
+};
+
+const BACKUP = {
+  icone: 'baixar',
+  rota: '#/backup',
+  titulo: 'Fazer backup dos dados',
+  texto: 'Em "Backup", baixe uma cópia dos dados da escola em Excel (uma aba para cada tipo de dado) ou em JSON. Vale fazer ao fim de cada bimestre.\n'
+    + 'O arquivo tem dados pessoais de estudantes: guarde em local seguro e não compartilhe. Cada backup fica registrado na auditoria.',
+};
+
 const HISTORICO = {
   icone: 'alunos',
   rota: '#/alunos',
@@ -147,7 +164,7 @@ const MASTER_APOIO = {
   icone: 'chave',
   rota: '#/equipe',
   titulo: 'Apoiar a direção',
-  texto: 'Em "Equipe e senhas" você gera nova senha provisória para qualquer pessoa da escola, inclusive a direção, quando alguém esquecer. Você não pode desativar nem mudar o perfil da direção.',
+  texto: 'Em "Equipe e senhas" você gera nova senha provisória para qualquer pessoa da escola, inclusive a direção, quando alguém esquecer. Só você gera nova senha para o(a) diretor(a): a vice-direção não pode. Você não pode desativar nem mudar o perfil da direção.',
 };
 const MASTER_ATUALIZAR = {
   icone: 'tendencia',
@@ -180,15 +197,15 @@ export const TUTORIAIS = {
   },
   poc: {
     resumo: 'Como Professor(a) Orientador(a) de Convivência, você acompanha as ocorrências, faz a escuta e a mediação e ajuda a equipe com as senhas dos professores.',
-    passos: [ACESSO, AVISOS_GESTAO, ACOMPANHAR, HISTORICO, BUSCA, EQUIPE, PDF, REGISTRAR],
+    passos: [ACESSO, AVISOS_GESTAO, ACOMPANHAR, HISTORICO, ATENCAO, BUSCA, EQUIPE, PDF, BACKUP, REGISTRAR],
   },
   coordenador: {
     resumo: 'Você acompanha todas as ocorrências da escola, responde aos professores, cuida da busca ativa e ajuda com as senhas dos professores.',
-    passos: [ACESSO, AVISOS_GESTAO, ACOMPANHAR, PAINEL, HISTORICO, BUSCA, EQUIPE, PDF],
+    passos: [ACESSO, AVISOS_GESTAO, ACOMPANHAR, PAINEL, HISTORICO, ATENCAO, BUSCA, EQUIPE, PDF, BACKUP],
   },
   vice: {
     resumo: 'Você acompanha as ocorrências e administra o sistema da escola: equipe, turmas, alunos e medidas da Res. SEDUC nº 68/2026.',
-    passos: [ACESSO, AVISOS_GESTAO, ACOMPANHAR, ADMIN_USUARIOS, ADMIN_SED, BUSCA, AFASTAMENTO, PAINEL, PDF],
+    passos: [ACESSO, AVISOS_GESTAO, ACOMPANHAR, ATENCAO, ADMIN_USUARIOS, ADMIN_SED, BUSCA, AFASTAMENTO, PAINEL, PDF, BACKUP],
   },
   master: {
     resumo: 'Você é o usuário master da escola: faz a configuração inicial do SisRoe, cadastra a equipe e ajuda a direção nas atualizações e com senhas esquecidas.',
@@ -196,6 +213,6 @@ export const TUTORIAIS = {
   },
   diretor: {
     resumo: 'Você administra o SisRoe da escola: cadastra a equipe, importa as turmas, acompanha as ocorrências e decide as medidas excepcionais.',
-    passos: [ACESSO, ADMIN_USUARIOS, ADMIN_SED, AVISOS_GESTAO, ACOMPANHAR, AFASTAMENTO, BUSCA, PAINEL, ADMIN_GERAL, PDF],
+    passos: [ACESSO, ADMIN_USUARIOS, ADMIN_SED, AVISOS_GESTAO, ACOMPANHAR, ATENCAO, AFASTAMENTO, BUSCA, PAINEL, ADMIN_GERAL, PDF, BACKUP],
   },
 };

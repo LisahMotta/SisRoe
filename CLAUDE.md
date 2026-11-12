@@ -23,11 +23,15 @@ Multi-school (multi-tenant) incident log. Express backend + vanilla JS SPA (ES m
 - **Tenant rule:** every query on school data MUST filter by `escola_id = req.usuario.escola_id`, including lookups
   of ids that come from the client (tipo_id, turma_id, aluno ids). `test/api.test.js` has isolation tests: extend
   them when adding routes.
+- Login: per-account lockout in the DB (`falhas_login`/`bloqueado_ate`, 8 failures → 15 min; a password reset unlocks),
+  dummy bcrypt compare for unknown users. Open school registration has a honeypot field (`site`) and a daily cap
+  (`LIMITE_CADASTROS_DIA`, default 50). CSV export neutralizes formulas. Push text never includes chat content.
 - `server/auth.js`: JWT holds `{uid, eid}`. The user is reloaded on every request (deactivation takes effect right away).
   `trocar_senha` blocks everything except `/eu` and `/minha-senha`. Roles: `exigeGestao` (poc/coordenador/vice/diretor),
   `exigeAdmin` (system admin: vice/diretor/master), `exigeDirecao` (Res. 68 decisions + cancel: vice/diretor only),
   `exigeBuscaAtiva`, `exigeGestaoOuAdmin`. `master` = one per school, admin without access to student data; rules in
-  `conferirRegrasMaster` (escola.js).
+  `conferirRegrasMaster` (escola.js). Only the master resets the diretor's password; only the diretor resets the master's;
+  the vice cannot create, edit, deactivate or promote anyone (incl. self) to diretor.
 - `public/js/catalogo.js`: shared by server and browser: categories, MACROS (a–j), REGRAS_BO, default steps
   (`PROCEDIMENTOS`, used when a type has no own steps; keys stored in `ocorrencias.protocolo`), roles, labels.
 - `server/protocolo179.js` is GENERATED from the Protocolo 179 PDF (see `ferramentas/LEIAME.md`): 50 situations with
@@ -55,5 +59,11 @@ Multi-school (multi-tenant) incident log. Express backend + vanilla JS SPA (ES m
   ~2.8M-char parts (Vercel 4.5 MB request/response limit); one per turma (new replaces old). Batch photos:
   `casarFoto` in `public/js/imagem.js` matches file names to RA/name, then `PUT /alunos/:id/foto`.
   Busca ativa: `routes/busca.js` (access = `PERFIS_BUSCA`: gestão + agente, gerente, secretaria; not professor); WhatsApp only opens `wa.me` links (`public/js/whatsapp.js`), never sends by itself.
+- Atenção especial (as in SisRoe Malba): gestão-only flag on `alunos` (`atencao_motivo/por/em`), routes in `alunos.js`
+  (`/alunos-atencao`, `PUT|DELETE /alunos/:id/atencao`); shown in Alunos, history and occurrence detail for gestão only,
+  never to professors, in the PDF or in the CSV.
+- Backup (gestão only, `#/backup`): `routes/backup.js` serves whitelisted tables (`TABELAS`) in pages of 500 without
+  secrets (`usuarios` only for admin); the browser builds the .xlsx (`public/js/planilha.js`, dependency-free stored ZIP)
+  and the .json. Photos/carômetro files are not included. Downloads are audited.
 - Integrity rules: the original relato is never edited (use notas), gravidade only goes up, ocorrências are cancelled
   (with a reason), never deleted.

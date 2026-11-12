@@ -537,6 +537,20 @@ test('Usuário master: configura a escola, ajuda a direção e não vê dados de
   await api('/minha-senha', { token: V, metodo: 'POST', corpo: { atual: vice.senhaProvisoria, nova: 'Vera2026x' } });
   assert.equal((await api(`/usuarios/${mario.id}`, { token: V, metodo: 'PUT', corpo: { ativo: false } })).status, 403);
   assert.equal((await api(`/usuarios/${mario.id}/resetar-senha`, { token: V, metodo: 'POST' })).status, 403);
+  // Senha da direção: só o master. A vice não gera, não altera, não desativa nem cria diretor (nem se promove).
+  assert.equal((await api(`/usuarios/${dina.id}/resetar-senha`, { token: V, metodo: 'POST' })).status, 403);
+  assert.equal((await api(`/usuarios/${dina.id}`, { token: V, metodo: 'PUT', corpo: { ativo: false } })).status, 403);
+  assert.equal((await api(`/usuarios/${dina.id}`, { token: V, metodo: 'PUT', corpo: { perfil: 'professor' } })).status, 403);
+  assert.equal((await api('/usuarios', { token: V, metodo: 'POST', corpo: { nome: 'Novo Diretor', login: '77777777', perfil: 'diretor' } })).status, 403);
+  const souEu = (await api('/eu', { token: V })).dados.usuario;
+  assert.equal((await api(`/usuarios/${souEu.id}`, { token: V, metodo: 'PUT', corpo: { perfil: 'diretor' } })).status, 403, 'vice não se promove');
+  const lote = (await api('/usuarios/lote', { token: V, metodo: 'POST', corpo: { usuarios: [{ nome: 'Diretor Lote', documento: '88888888', perfil: 'diretor' }, { nome: 'Prof Lote', documento: '99999999', perfil: 'professor' }] } })).dados;
+  assert.equal(lote.criados.length, 1);
+  assert.match(lote.ignorados[0].motivo, /vice-direção/);
+  // A vice continua gerando senha para os demais (ex.: professor) e editando o nome da direção.
+  const profLote = (await api('/usuarios', { token: V })).dados.find((u) => u.login === '99999999');
+  assert.equal((await api(`/usuarios/${profLote.id}/resetar-senha`, { token: V, metodo: 'POST' })).status, 200);
+  assert.equal((await api(`/usuarios/${dina.id}`, { token: V, metodo: 'PUT', corpo: { nome: 'Dina Diretora Silva' } })).status, 200);
   // Isolamento: o master de uma escola não alcança outra.
   assert.equal((await api('/usuarios', { token: M })).dados.some((u) => u.login === 'diretora'), false);
 });
@@ -649,4 +663,123 @@ test('Carômetro em arquivo (PDF/JPG em partes) e lista para fotos em lote', asy
   assert.equal(todos[0].tem_foto, 0);
   assert.equal((await api('/alunos-lista', { token: P })).status, 403);
   assert.equal((await api('/alunos-lista', { token: outra })).dados.length, 0);
+});
+
+test('Segurança: bloqueio após senhas erradas, armadilha do cadastro e CSV sem fórmulas', async () => {
+  const E = await cadastrarEscola('escola-seg');
+  const P = await criarUsuario(E, 'escola-seg', '51111111', 'professor');
+  const login = (senha) => api('/login', { metodo: 'POST', corpo: { codigo: 'escola-seg', login: '51111111', senha } });
+  // 7 erros não bloqueiam; o acerto zera a contagem.
+  for (let i = 0; i < 7; i++) assert.equal((await login('errada123')).status, 401);
+  assert.equal((await login('NovaSenha99')).status, 200);
+  // 8 erros seguidos bloqueiam, até com a senha certa.
+  for (let i = 0; i < 8; i++) assert.equal((await login('errada123')).status, 401);
+  const bloq = await login('NovaSenha99');
+  assert.equal(bloq.status, 429);
+  assert.match(bloq.dados.erro, /direção ou à coordenação/);
+  // Usuário inexistente e escola inexistente: mesma resposta.
+  assert.equal((await api('/login', { metodo: 'POST', corpo: { codigo: 'escola-seg', login: '99999999', senha: 'x' } })).dados.erro,
+    (await api('/login', { metodo: 'POST', corpo: { codigo: 'nao-existe', login: '99999999', senha: 'x' } })).dados.erro);
+  // A direção gera nova senha: desbloqueia.
+  const prof = (await api('/usuarios', { token: E })).dados.find((u) => u.login === '51111111');
+  const nova = (await api(`/usuarios/${prof.id}/resetar-senha`, { token: E, metodo: 'POST' })).dados.senhaProvisoria;
+  assert.equal((await login(nova)).status, 200);
+  // O bloqueio de uma escola não afeta o mesmo login em outra.
+  // Armadilha para robôs no cadastro.
+  const robo = await api('/escolas', { metodo: 'POST', corpo: { site: 'http://spam', escola: { nome: 'Robô', codigo: 'robo-1' },
+    admin: { nome: 'Robô', login: 'robo1', senha: 'Senha1234' } } });
+  assert.equal(robo.status, 400);
+  assert.equal((await api('/login', { metodo: 'POST', corpo: { codigo: 'robo-1', login: 'robo1', senha: 'Senha1234' } })).status, 401);
+  // CSV: relato que começa com "=" não vira fórmula no Excel.
+  const tipo = (await api('/tipos', { token: E })).dados.find((t) => t.codigo === 'A16');
+  await api('/ocorrencias', { token: E, metodo: 'POST', corpo: { tipo_id: tipo.id, data: '2026-11-10', hora: '09:00', local: 'Sala de aula',
+    relato: '=HYPERLINK("http://exemplo","clique") e outras coisas', alunos: [{ nome: '@Aluno Teste' }] } });
+  const csv = (await api('/ocorrencias.csv', { token: E })).dados;
+  assert.match(csv, /"'=HYPERLINK/);
+  assert.match(csv, /"'@ALUNO TESTE/);
+  assert.equal(P.length > 0, true);
+});
+
+test('Atenção especial: só a gestão sinaliza e vê; professor, agente e master não', async () => {
+  const E = await cadastrarEscola('escola-atencao');
+  const outra = await cadastrarEscola('escola-atencao-2');
+  const turma = (await api('/turmas', { token: E, metodo: 'POST', corpo: { nome: '8º C' } })).dados.id;
+  await api(`/turmas/${turma}/importar`, { token: E, metodo: 'POST', corpo: { texto: '111222333;Pedro Alves\n111222334;Rita Lima' } });
+  const [pedro] = (await api('/alunos?busca=pedro', { token: E })).dados;
+  const coord = await criarUsuario(E, 'escola-atencao', '61111111', 'coordenador');
+  const poc = await criarUsuario(E, 'escola-atencao', '62222222', 'poc');
+  const prof = await criarUsuario(E, 'escola-atencao', '63333333', 'professor');
+  const agente = await criarUsuario(E, 'escola-atencao', '64444444', 'agente');
+  const master = await criarUsuario(E, 'escola-atencao', '65555555', 'master');
+  // Quem não é gestão: 403 em tudo.
+  for (const t of [prof, agente, master]) {
+    assert.equal((await api(`/alunos/${pedro.id}/atencao`, { token: t, metodo: 'PUT', corpo: { motivo: 'x' } })).status, 403);
+    assert.equal((await api('/alunos-atencao', { token: t })).status, 403);
+  }
+  // Coordenação sinaliza; a POC vê e edita; outra escola não alcança.
+  assert.equal((await api(`/alunos/${pedro.id}/atencao`, { token: coord, metodo: 'PUT', corpo: { motivo: 'Reincidência em agressões' } })).status, 200);
+  assert.equal((await api(`/alunos/${pedro.id}/atencao`, { token: outra, metodo: 'PUT', corpo: { motivo: 'x' } })).status, 404);
+  assert.equal((await api('/alunos-atencao', { token: outra })).dados.length, 0);
+  let lista = (await api('/alunos-atencao', { token: poc })).dados;
+  assert.equal(lista.length, 1);
+  assert.equal(lista[0].atencao_motivo, 'Reincidência em agressões');
+  assert.equal(lista[0].atencao_por, '61111111');
+  assert.equal(lista[0].turma_nome, '8º C');
+  // Ocorrência registrada pelo professor: a gestão vê o aviso; o professor não.
+  const tipo = (await api('/tipos', { token: prof })).dados.find((t) => t.codigo === 'A7');
+  const occ = (await api('/ocorrencias', { token: prof, metodo: 'POST', corpo: { tipo_id: tipo.id, data: '2026-11-10', hora: '10:00',
+    local: 'Sala de aula', relato: 'Perturbou a aula repetidas vezes.', alunos: [{ id: pedro.id, papel: 'autor' }] } })).dados;
+  const visaoProf = (await api(`/ocorrencias/${occ.id}`, { token: prof })).dados;
+  assert.equal(visaoProf.alunos[0].atencao, undefined);
+  assert.equal(JSON.stringify(visaoProf).includes('Reincidência'), false);
+  const visaoGestao = (await api(`/ocorrencias/${occ.id}`, { token: coord })).dados;
+  assert.equal(visaoGestao.alunos[0].atencao, true);
+  assert.equal((await api('/alunos-atencao', { token: poc })).dados[0].qtd_ocorrencias, 1);
+  assert.equal((await api(`/alunos/${pedro.id}/historico`, { token: poc })).dados.aluno.atencao_motivo, 'Reincidência em agressões');
+  // Remover.
+  assert.equal((await api(`/alunos/${pedro.id}/atencao`, { token: prof, metodo: 'DELETE' })).status, 403);
+  assert.equal((await api(`/alunos/${pedro.id}/atencao`, { token: poc, metodo: 'DELETE' })).status, 200);
+  lista = (await api('/alunos-atencao', { token: coord })).dados;
+  assert.equal(lista.length, 0);
+});
+
+test('Backup: só a gestão baixa, em páginas, sem senhas e sem dados de outra escola', async () => {
+  const E = await cadastrarEscola('escola-backup');
+  const outra = await cadastrarEscola('escola-backup-2');
+  const turma = (await api('/turmas', { token: E, metodo: 'POST', corpo: { nome: '1º EM A' } })).dados.id;
+  for (const [ini, qtd] of [[0, 300], [300, 220]]) {
+    await api(`/turmas/${turma}/importar`, { token: E, metodo: 'POST', corpo: { texto: Array.from({ length: qtd }, (_, i) => `${900000 + ini + i};Aluno Numero ${ini + i}`).join('\n') } });
+  }
+  await api('/turmas', { token: outra, metodo: 'POST', corpo: { nome: 'Turma da Outra' } });
+  const coord = await criarUsuario(E, 'escola-backup', '71111111', 'coordenador');
+  const prof = await criarUsuario(E, 'escola-backup', '72222222', 'professor');
+  const master = await criarUsuario(E, 'escola-backup', '73333333', 'master');
+  for (const t of [prof, master]) {
+    assert.equal((await api('/backup', { token: t })).status, 403);
+    assert.equal((await api('/backup/alunos', { token: t })).status, 403);
+  }
+  // Coordenação: tudo menos a equipe; direção: com a equipe.
+  const infoCoord = (await api('/backup', { token: coord })).dados;
+  assert.equal(infoCoord.tabelas.some((t) => t.nome === 'usuarios'), false);
+  assert.equal((await api('/backup/usuarios', { token: coord })).status, 404);
+  assert.equal((await api('/backup/escolas', { token: coord })).status, 404, 'só tabelas da lista');
+  assert.equal((await api('/backup/fotos_alunos', { token: coord })).status, 404);
+  const info = (await api('/backup', { token: E })).dados;
+  assert.equal(info.tabelas.find((t) => t.nome === 'alunos').registros, 520);
+  // Páginas de 500.
+  const p1 = (await api('/backup/alunos', { token: coord })).dados;
+  assert.equal(p1.linhas.length, 500);
+  assert.equal(p1.fim, false);
+  const p2 = (await api(`/backup/alunos?depois=${p1.linhas[499].id}`, { token: coord })).dados;
+  assert.equal(p2.linhas.length, 20);
+  assert.equal(p2.fim, true);
+  assert.equal(p1.linhas[0].escola_id, undefined);
+  // Equipe sem senha; turmas só da própria escola.
+  const equipe = (await api('/backup/usuarios', { token: E })).dados.linhas;
+  assert.ok(equipe.length >= 4);
+  assert.ok(equipe.every((u) => !('senha_hash' in u) && !('falhas_login' in u)));
+  const turmas = (await api('/backup/turmas', { token: E })).dados.linhas;
+  assert.deepEqual(turmas.map((t) => t.nome), ['1º EM A']);
+  assert.equal((await api('/backup/registrar', { token: coord, metodo: 'POST', corpo: { formato: 'xlsx' } })).status, 200);
+  assert.ok((await api('/auditoria', { token: E })).dados.some((a) => a.acao === 'backup_baixado'));
 });

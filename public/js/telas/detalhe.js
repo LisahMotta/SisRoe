@@ -5,7 +5,7 @@ import { api, baixar } from '../api.js';
 import { montarChat } from '../chat.js';
 import { fecharPopupsDa } from '../notificacoes.js';
 import { $, $$, esc, dataBR, dataHoraBR, seloCategoria, seloGravidade, seloStatus, lerForm, avisar, avisarErro,
-  comCarregando, abrirModal, fecharModal, hojeISO, imprimirAvulso } from '../ui.js';
+  comCarregando, abrirModal, fecharModal, hojeISO, imprimirAvulso, icone } from '../ui.js';
 import { estado, ehGestao, ehDirecao } from '../app.js';
 import { CATEGORIAS, GRAVIDADES, ORDEM_GRAVIDADE, PAPEIS_ALUNO, PERFIS, NIVEIS, RES68,
   HIPOTESES_AFASTAMENTO, AFASTAMENTO_MAX_DIAS } from '../catalogo.js';
@@ -67,7 +67,8 @@ export async function render(el, [id]) {
       <h2>Estudantes envolvidos</h2>
       ${o.alunos.length ? `<table class="tabela"><thead><tr><th>Nome</th><th>RA</th><th>Turma</th><th>Papel</th>
           ${ehGestao() ? '<th class="nao-imprimir">Ocorr. anteriores</th>' : ''}</tr></thead><tbody>
-        ${o.alunos.map((a) => `<tr><td>${ehGestao() && a.aluno_id ? `<a href="#/alunos/${a.aluno_id}">${esc(a.nome)}</a>` : esc(a.nome)}</td>
+        ${o.alunos.map((a) => `<tr><td>${ehGestao() && a.aluno_id ? `<a href="#/alunos/${a.aluno_id}">${esc(a.nome)}</a>` : esc(a.nome)}
+          ${a.atencao ? `<span class="selo selo-atencao nao-imprimir" title="${esc(a.atencao_motivo || 'Sinalizado pela equipe gestora')}">${icone('alerta')}Atenção especial</span>` : ''}</td>
           <td>${esc(a.ra || '—')}</td><td>${esc(a.turma_nome || '—')}</td><td>${esc(PAPEIS_ALUNO[a.papel] || a.papel)}</td>
           ${ehGestao() ? `<td class="nao-imprimir">${a.anteriores ?? '—'}</td>` : ''}</tr>`).join('')}
         </tbody></table>` : '<p>Nenhum estudante identificado.</p>'}

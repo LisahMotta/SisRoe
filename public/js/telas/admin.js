@@ -2,7 +2,7 @@
 // Abas: primeiros passos, escola, usuários, turmas e alunos, SED, carômetro, tipos, auditoria.
 import { api } from '../api.js';
 import { $, $$, esc, lerForm, avisar, avisarErro, comCarregando, abrirModal, fecharModal, dataHoraBR, seloGravidade, aplicarIcones, imprimirAvulso } from '../ui.js';
-import { estado, ehAdmin, recarregarCadastros } from '../app.js';
+import { estado, ehAdmin, ehMaster, recarregarCadastros } from '../app.js';
 import { PERFIS, CATEGORIAS, GRAVIDADES, MACROS } from '../catalogo.js';
 import { lerArquivoSED, lerListaEquipe, lerArquivoTexto } from '../sed.js';
 import { MODELO_PADRAO, CAMPOS_MODELO } from '../whatsapp.js';
@@ -54,6 +54,14 @@ function novoContainer(el) {
   const box = document.createElement('div');
   el.replaceChildren(box);
   return box;
+}
+
+/** Nova senha: a da direção só o master gera; a do master só a direção. */
+function podeNovaSenha(u) {
+  if (u.id === estado.usuario.id) return false;
+  if (u.perfil === 'diretor') return ehMaster();
+  if (u.perfil === 'master') return estado.usuario.perfil === 'diretor';
+  return true;
 }
 
 // ─── Primeiros passos ────────────────────────────────────────────────────────
@@ -110,6 +118,7 @@ async function escola(el) {
 
 // ─── Usuários ────────────────────────────────────────────────────────────────
 async function usuarios(el) {
+  const souVice = estado.usuario.perfil === 'vice';
   const box = novoContainer(el);
   const lista = await api('/usuarios');
   box.innerHTML = `
@@ -127,7 +136,7 @@ async function usuarios(el) {
         <label>Usuário: RG ou CIN * <input name="login" required maxlength="30" autocapitalize="none" inputmode="text" placeholder="ex.: 12.345.678-X">
           <small>Pode digitar com ou sem pontos; o sistema guarda só os números.</small></label>
         <label>Perfil *
-          <select name="perfil">${Object.entries(PERFIS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
+          <select name="perfil">${Object.entries(PERFIS).filter(([k]) => !(souVice && k === 'diretor')).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
       </div>
       <button class="btn btn-primario" type="submit">Cadastrar e gerar senha provisória</button>
     </form>
@@ -137,13 +146,15 @@ async function usuarios(el) {
         <thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Situação</th><th></th></tr></thead>
         <tbody>${lista.map((u) => `<tr class="${u.ativo ? '' : 'inativo'}">
           <td>${esc(u.nome)}</td><td>${esc(u.login)}</td>
-          <td><select data-perfil="${u.id}" aria-label="Perfil de ${esc(u.nome)}">${Object.entries(PERFIS).map(([k, v]) =>
+          <td><select data-perfil="${u.id}" aria-label="Perfil de ${esc(u.nome)}" ${souVice && u.perfil === 'diretor' ? 'disabled' : ''}>${Object.entries(PERFIS)
+            .filter(([k]) => !(souVice && k === 'diretor' && u.perfil !== 'diretor')).map(([k, v]) =>
             `<option value="${k}" ${u.perfil === k ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
           <td>${u.ativo ? (u.trocar_senha ? 'Aguardando 1º acesso' : 'Ativo') : 'Inativo'}</td>
           <td class="linha-btn">
-            <button class="btn btn-peq" data-reset="${u.id}" data-nome="${esc(u.nome)}" data-login="${esc(u.login)}">Nova senha</button>
-            <button class="btn btn-peq" data-ativo="${u.id}" data-valor="${u.ativo ? 0 : 1}">${u.ativo ? 'Desativar' : 'Reativar'}</button>
+            ${podeNovaSenha(u) ? `<button class="btn btn-peq" data-reset="${u.id}" data-nome="${esc(u.nome)}" data-login="${esc(u.login)}">Nova senha</button>` : ''}
+            ${souVice && u.perfil === 'diretor' ? '' : `<button class="btn btn-peq" data-ativo="${u.id}" data-valor="${u.ativo ? 0 : 1}">${u.ativo ? 'Desativar' : 'Reativar'}</button>`}
           </td></tr>`).join('')}</tbody></table></div>
+      ${souVice ? '<p class="ajuda">A vice-direção não altera a conta da direção. Nova senha para o(a) diretor(a): só pelo usuário master.</p>' : ''}
     </section>`;
 
   $('#btn-lote', box).addEventListener('click', () => modalLote(el));

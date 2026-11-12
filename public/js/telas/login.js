@@ -107,6 +107,7 @@ export async function renderCadastro(el) {
         </fieldset>
         ${cfg.cadastroExigeChave ? `<label>Chave de cadastro *
             <input name="chave" required autocomplete="off"><small>Fornecida por quem administra este servidor.</small></label>` : ''}
+        <label class="campo-armadilha" aria-hidden="true">Não preencha este campo <input name="site" tabindex="-1" autocomplete="off"></label>
         <button class="btn btn-primario btn-largo" type="submit">Cadastrar escola</button>
       </form>
       <p class="login-cadastro"><a href="#/login" class="btn-link" data-icone="voltar">Voltar ao login</a></p>
@@ -130,6 +131,7 @@ export async function renderCadastro(el) {
       try {
         const r = await api('/escolas', { metodo: 'POST', corpo: {
           chave: d.chave,
+          site: d.site, // armadilha para robôs (campo invisível)
           escola: { nome: d.nome, codigo: d.codigo, cie: d.cie, municipio: d.municipio, diretoria: d.diretoria },
           admin: { nome: d.adminNome, login: d.login, senha: d.senha, perfil: d.perfil },
         } });

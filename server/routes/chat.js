@@ -45,7 +45,8 @@ r.post('/ocorrencias/:id/chat', rota(async (req, res) => {
   const destino = (await idsGestao(u.escola_id, u.id)).concat(o.registrado_por_id !== u.id ? [o.registrado_por_id] : []);
   await notificar(u.escola_id, destino, {
     titulo: `Mensagem na ocorrência ${numero(o)}`,
-    corpo: `${u.nome}: ${texto.slice(0, 120)}`,
+    // Sem o texto: a mensagem pode citar estudantes e a notificação aparece na tela bloqueada do celular.
+    corpo: `${u.nome} enviou uma mensagem. Abra o SisRoe para ler.`,
     url: `/#/ocorrencia/${o.id}`,
     tag: `chat-${o.id}`,
   });
