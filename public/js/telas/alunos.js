@@ -1,7 +1,7 @@
 // telas/alunos.js — busca de aluno e histórico de ocorrências (equipe gestora).
 import { api } from '../api.js';
-import { $, esc, dataBR, dataHoraBR, seloCategoria, seloGravidade, seloStatus, avisarErro, imprimirAvulso, hojeISO } from '../ui.js';
-import { estado, ehGestao, ehDirecao } from '../app.js';
+import { $, esc, dataBR, dataHoraBR, seloCategoria, seloGravidade, seloStatus, avisar, avisarErro, imprimirAvulso, hojeISO, abrirModal, fecharModal, comCarregando, icone, aplicarIcones } from '../ui.js';
+import { estado, ehGestao, ehDirecao, navegar } from '../app.js';
 import { CATEGORIAS, PAPEIS_ALUNO, NIVEIS, RES68 } from '../catalogo.js';
 
 export async function render(el, [id]) {
@@ -11,8 +11,27 @@ export async function render(el, [id]) {
   }
   if (id) return historico(el, Number(id));
 
+  let sinalizados = [];
+  try { sinalizados = await api('/alunos-atencao'); } catch (e) { avisarErro(e); }
+  const idsSinalizados = new Set(sinalizados.map((a) => a.id));
   el.innerHTML = `
-    <h1>Histórico do aluno</h1>
+    <h1>Alunos</h1>
+    <section class="cartao atencao-lista">
+      <h2>${icone('alerta')}Alunos com atenção especial (${sinalizados.length})</h2>
+      <p class="ajuda">Estudantes que a equipe gestora sinalizou para acompanhamento mais próximo. Só POC, coordenação,
+        vice e direção veem esta lista; ela não aparece para professores nem nos documentos impressos.</p>
+      ${sinalizados.length ? `<ul class="atencao-itens">${sinalizados.map((a) => `
+        <li class="atencao-item">
+          <div class="atencao-desc"><b>${esc(a.nome)}</b>
+            <small>${esc(a.turma_nome || 'Sem turma')}${a.ra ? ` · RA ${esc(a.ra)}` : ''} · ${a.qtd_ocorrencias} ocorrência(s)</small>
+            ${a.atencao_motivo ? `<p><b>Motivo:</b> ${esc(a.atencao_motivo)}</p>` : ''}
+            <small>Sinalizado por ${esc(a.atencao_por || '—')} em ${dataHoraBR(a.atencao_em)}</small></div>
+          <div class="linha-btn">
+            <a class="btn btn-peq" href="#/alunos/${a.id}" data-icone="lista">Ver histórico</a>
+            <button class="btn btn-peq btn-perigo-claro" data-remover-atencao="${a.id}" data-nome="${esc(a.nome)}" data-icone="fechar">Remover</button>
+          </div></li>`).join('')}</ul>` : '<p class="vazio">Nenhum aluno sinalizado. Use a busca abaixo e clique em "Sinalizar".</p>'}
+    </section>
+    <h2 class="titulo-secao">Buscar aluno</h2>
     <div class="cartao">
       <div class="grade-2">
         <label>Buscar por nome ou RA <input type="search" id="busca" placeholder="Digite ao menos 2 letras" autofocus></label>
@@ -26,10 +45,19 @@ export async function render(el, [id]) {
   const res = $('#res', el);
   const mostrar = (lista) => {
     res.innerHTML = lista.length
-      ? lista.map((a) => `<li><a href="#/alunos/${a.id}"><span class="desc">${esc(a.nome)}
-          <small>${esc(a.turma_nome || 'Sem turma')}${a.ra ? ` · RA ${esc(a.ra)}` : ' · sem RA'}</small></span></a></li>`).join('')
+      ? lista.map((a) => `<li class="aluno-linha"><a href="#/alunos/${a.id}"><span class="desc">${esc(a.nome)}
+          <small>${esc(a.turma_nome || 'Sem turma')}${a.ra ? ` · RA ${esc(a.ra)}` : ' · sem RA'}</small></span></a>
+          ${idsSinalizados.has(a.id) ? `<span class="selo selo-atencao">${icone('alerta')}Atenção especial</span>`
+            : `<button class="btn btn-peq" data-sinalizar="${a.id}" data-nome="${esc(a.nome)}" data-icone="alerta">Sinalizar</button>`}</li>`).join('')
       : '<li class="vazio">Nenhum aluno encontrado.</li>';
+    aplicarIcones(res);
   };
+  el.addEventListener('click', async (ev) => {
+    const s = ev.target.closest('[data-sinalizar]');
+    if (s) modalSinalizar(Number(s.dataset.sinalizar), s.dataset.nome, '', () => navegar('#/alunos'));
+    const r = ev.target.closest('[data-remover-atencao]');
+    if (r) removerSinalizacao(Number(r.dataset.removerAtencao), r.dataset.nome, () => navegar('#/alunos'));
+  });
   let tempo;
   $('#busca', el).addEventListener('input', (ev) => {
     clearTimeout(tempo);
@@ -53,7 +81,14 @@ async function historico(el, id) {
     <h1>${esc(aluno.nome)}</h1>
     <div class="cab-tela"><p>${esc(aluno.turma_nome || 'Sem turma')}${aluno.ra ? ` · RA ${esc(aluno.ra)}` : ' · <span class="selo">sem RA</span>'}
         ${aluno.incluido_por ? `<br><small class="ajuda">Incluído(a) na lista por ${esc(aluno.incluido_por)} em ${dataBR(aluno.incluido_em.slice(0, 10))}, durante um registro. Confira os dados quando atualizar a lista da SED.</small>` : ''}</p>
-      ${ehDirecao() && ocorrencias.length ? '<button class="btn" id="btn-relatorio" data-icone="documento">Rascunho do relatório circunstanciado</button>' : ''}</div>
+      <div class="linha-btn">
+        ${aluno.atencao_em ? '' : '<button class="btn" id="btn-sinalizar" data-icone="alerta">Sinalizar para atenção especial</button>'}
+        ${ehDirecao() && ocorrencias.length ? '<button class="btn" id="btn-relatorio" data-icone="documento">Rascunho do relatório circunstanciado</button>' : ''}</div></div>
+    ${aluno.atencao_em ? `<div class="alerta alerta-atencao"><span>${icone('alerta')}<span><b>Atenção especial.</b>
+        ${aluno.atencao_motivo ? `Motivo: ${esc(aluno.atencao_motivo.replace(/[.\s]+$/, ''))}.` : ''}
+        <small>Sinalizado por ${esc(aluno.atencao_por || '—')} em ${dataHoraBR(aluno.atencao_em)}.</small></span></span>
+        <span class="linha-btn"><button class="btn btn-peq" id="btn-editar-atencao">Editar motivo</button>
+        <button class="btn btn-peq btn-perigo-claro" id="btn-remover-atencao">Remover sinalização</button></span></div>` : ''}
     <div class="numeros">
       <div class="numero"><span>${ocorrencias.length}</span>ocorrências</div>
       ${porCat.map(([c, n]) => `<div class="numero cat-borda-${c}"><span>${n}</span>${esc(CATEGORIAS[c].nome)}</div>`).join('')}
@@ -68,6 +103,10 @@ async function historico(el, id) {
         : '<p class="vazio">Nenhuma ocorrência registrada para este aluno.</p>'}
     </section>`;
   $('#btn-relatorio', el)?.addEventListener('click', () => api(`/alunos/${id}/relatorio`).then(relatorio).catch(avisarErro));
+  const recarregar = () => historico(el, id).then(() => aplicarIcones(el));
+  $('#btn-sinalizar', el)?.addEventListener('click', () => modalSinalizar(id, aluno.nome, '', recarregar));
+  $('#btn-editar-atencao', el)?.addEventListener('click', () => modalSinalizar(id, aluno.nome, aluno.atencao_motivo || '', recarregar));
+  $('#btn-remover-atencao', el)?.addEventListener('click', () => removerSinalizacao(id, aluno.nome, recarregar));
 }
 
 /**
@@ -126,4 +165,34 @@ function relatorio({ aluno, ocorrencias, afastamentos }) {
       anteriores (§ 3º). Imagens, vídeos e mensagens só podem ser juntados observando sigilo e proteção de dados (§ 2º).</small></p>
     <div class="assinaturas assinaturas-2"><div>&nbsp;<br><small>Direção da unidade escolar</small></div>
       <div>&nbsp;<br><small>Equipe responsável</small></div></div>`);
+}
+
+/** Janela para sinalizar (ou editar o motivo de) um aluno com atenção especial. */
+function modalSinalizar(id, nome, motivoAtual, depois) {
+  const m = abrirModal(`Atenção especial — ${nome}`, `
+    <p>O aluno passa a aparecer na lista <b>Alunos com atenção especial</b> e com um aviso nas ocorrências.
+      Só a equipe gestora vê essa sinalização.</p>
+    <label>Motivo <small>(opcional)</small>
+      <textarea id="atencao-motivo" rows="3" maxlength="500" placeholder="Ex.: reincidência em agressões; acompanhamento com a família; encaminhado ao CAPS.">${esc(motivoAtual)}</textarea></label>
+    <p class="ajuda">Descreva fatos e o acompanhamento necessário, sem rótulos sobre o estudante.</p>
+    <div class="acoes"><button class="btn btn-primario" id="atencao-salvar" data-icone="alerta">${motivoAtual ? 'Salvar' : 'Sinalizar'}</button>
+      <button class="btn" data-fechar>Cancelar</button></div>`);
+  $('#atencao-motivo', m).focus();
+  $('#atencao-salvar', m).addEventListener('click', (ev) => comCarregando(ev.currentTarget, async () => {
+    try {
+      await api(`/alunos/${id}/atencao`, { metodo: 'PUT', corpo: { motivo: $('#atencao-motivo', m).value } });
+      fecharModal();
+      avisar(`${nome} sinalizado(a) para atenção especial.`);
+      await depois();
+    } catch (e) { avisarErro(e); }
+  }));
+}
+
+async function removerSinalizacao(id, nome, depois) {
+  if (!confirm(`Remover a sinalização de atenção especial de ${nome}?`)) return;
+  try {
+    await api(`/alunos/${id}/atencao`, { metodo: 'DELETE' });
+    avisar(`Sinalização de ${nome} removida.`);
+    await depois();
+  } catch (e) { avisarErro(e); }
 }

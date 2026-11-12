@@ -239,6 +239,9 @@ ou sem zeros à esquerda) são atualizados; com a opção marcada, quem saiu da 
   pelo nome do arquivo (RA ou nome completo), e do carômetro pronto da turma em **PDF ou JPG** (até 20 MB), que
   aparece para toda a equipe na tela Carômetro. O arquivo fica no banco, dividido em partes de ~2 MB (limite de
   envio da Vercel). Atenção ao espaço do plano gratuito do Neon (0,5 GB): prefira um PDF por turma.
+- **Alunos com atenção especial** (como no SisRoe da Malba): POC, coordenação, vice e direção sinalizam o estudante
+  que precisa de acompanhamento mais próximo, com motivo. Ele aparece numa lista em **Alunos** e com um aviso nas
+  ocorrências. Só a equipe gestora vê; não aparece para professores, no PDF nem na exportação.
 - **Guia ilustrado “Como registrar uma ocorrência”** (`#/guia`): passo a passo com imagens das telas (escola
   fictícia), exemplo de relato bom e ruim e dúvidas comuns. Abre pelo Tutorial e pela tela Nova ocorrência, e pode
   ser impresso. As imagens ficam em `public/img/guia` e são refeitas com `node ferramentas/capturas-guia.mjs`.

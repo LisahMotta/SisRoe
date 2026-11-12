@@ -146,9 +146,14 @@ export async function detalheCompleto(req, id) {
      WHERE x.escola_id = ? AND x.aluno_id IN (${ids.map(() => '?').join(',')}) AND oc.id <> ? AND oc.status <> 'cancelada'
      GROUP BY x.aluno_id`, [eid, ...ids, o.id]) : [];
   const mapa = Object.fromEntries(anteriores.map((r) => [r.aluno_id, Number(r.qtd)]));
+  // Atenção especial: só a equipe gestora vê (a tela usa; o PDF não imprime).
+  const atencao = ehGestao(req.usuario) && ids.length ? Object.fromEntries((await db.all(
+    `SELECT id, atencao_motivo FROM alunos WHERE escola_id = ? AND atencao_em IS NOT NULL AND id IN (${ids.map(() => '?').join(',')})`,
+    [eid, ...ids])).map((r) => [r.id, r.atencao_motivo || ''])) : {};
   return {
     ...formatar(o),
-    alunos: alunos.map((a) => ({ ...a, anteriores: a.aluno_id ? mapa[a.aluno_id] || 0 : null })),
+    alunos: alunos.map((a) => ({ ...a, anteriores: a.aluno_id ? mapa[a.aluno_id] || 0 : null,
+      ...(a.aluno_id in atencao ? { atencao: true, atencao_motivo: atencao[a.aluno_id] } : {}) })),
     notas,
     afastamentos: afastamentos.map((a) => ({ ...a, hipoteses: JSON.parse(a.hipoteses || '[]') })),
   };
@@ -352,7 +357,7 @@ r.post('/ocorrencias/:id/cancelar', exigeDirecao, rota(async (req, res) => {
 r.get('/alunos/:id/historico', exigeGestao, rota(async (req, res) => {
   const eid = req.usuario.escola_id;
   const aluno = await db.one(
-    'SELECT a.id, a.ra, a.nome, a.incluido_por, a.incluido_em, t.nome AS turma_nome FROM alunos a LEFT JOIN turmas t ON t.id = a.turma_id WHERE a.id = ? AND a.escola_id = ?',
+    'SELECT a.id, a.ra, a.nome, a.incluido_por, a.incluido_em, a.atencao_motivo, a.atencao_por, a.atencao_em, t.nome AS turma_nome FROM alunos a LEFT JOIN turmas t ON t.id = a.turma_id WHERE a.id = ? AND a.escola_id = ?',
     [Number(req.params.id), eid]);
   if (!aluno) throw new ErroHttp(404, 'Aluno não encontrado.');
   const lista = await db.all(

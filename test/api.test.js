@@ -685,3 +685,46 @@ test('Segurança: bloqueio após senhas erradas, armadilha do cadastro e CSV sem
   assert.match(csv, /"'@ALUNO TESTE/);
   assert.equal(P.length > 0, true);
 });
+
+test('Atenção especial: só a gestão sinaliza e vê; professor, agente e master não', async () => {
+  const E = await cadastrarEscola('escola-atencao');
+  const outra = await cadastrarEscola('escola-atencao-2');
+  const turma = (await api('/turmas', { token: E, metodo: 'POST', corpo: { nome: '8º C' } })).dados.id;
+  await api(`/turmas/${turma}/importar`, { token: E, metodo: 'POST', corpo: { texto: '111222333;Pedro Alves\n111222334;Rita Lima' } });
+  const [pedro] = (await api('/alunos?busca=pedro', { token: E })).dados;
+  const coord = await criarUsuario(E, 'escola-atencao', '61111111', 'coordenador');
+  const poc = await criarUsuario(E, 'escola-atencao', '62222222', 'poc');
+  const prof = await criarUsuario(E, 'escola-atencao', '63333333', 'professor');
+  const agente = await criarUsuario(E, 'escola-atencao', '64444444', 'agente');
+  const master = await criarUsuario(E, 'escola-atencao', '65555555', 'master');
+  // Quem não é gestão: 403 em tudo.
+  for (const t of [prof, agente, master]) {
+    assert.equal((await api(`/alunos/${pedro.id}/atencao`, { token: t, metodo: 'PUT', corpo: { motivo: 'x' } })).status, 403);
+    assert.equal((await api('/alunos-atencao', { token: t })).status, 403);
+  }
+  // Coordenação sinaliza; a POC vê e edita; outra escola não alcança.
+  assert.equal((await api(`/alunos/${pedro.id}/atencao`, { token: coord, metodo: 'PUT', corpo: { motivo: 'Reincidência em agressões' } })).status, 200);
+  assert.equal((await api(`/alunos/${pedro.id}/atencao`, { token: outra, metodo: 'PUT', corpo: { motivo: 'x' } })).status, 404);
+  assert.equal((await api('/alunos-atencao', { token: outra })).dados.length, 0);
+  let lista = (await api('/alunos-atencao', { token: poc })).dados;
+  assert.equal(lista.length, 1);
+  assert.equal(lista[0].atencao_motivo, 'Reincidência em agressões');
+  assert.equal(lista[0].atencao_por, '61111111');
+  assert.equal(lista[0].turma_nome, '8º C');
+  // Ocorrência registrada pelo professor: a gestão vê o aviso; o professor não.
+  const tipo = (await api('/tipos', { token: prof })).dados.find((t) => t.codigo === 'A7');
+  const occ = (await api('/ocorrencias', { token: prof, metodo: 'POST', corpo: { tipo_id: tipo.id, data: '2026-11-10', hora: '10:00',
+    local: 'Sala de aula', relato: 'Perturbou a aula repetidas vezes.', alunos: [{ id: pedro.id, papel: 'autor' }] } })).dados;
+  const visaoProf = (await api(`/ocorrencias/${occ.id}`, { token: prof })).dados;
+  assert.equal(visaoProf.alunos[0].atencao, undefined);
+  assert.equal(JSON.stringify(visaoProf).includes('Reincidência'), false);
+  const visaoGestao = (await api(`/ocorrencias/${occ.id}`, { token: coord })).dados;
+  assert.equal(visaoGestao.alunos[0].atencao, true);
+  assert.equal((await api('/alunos-atencao', { token: poc })).dados[0].qtd_ocorrencias, 1);
+  assert.equal((await api(`/alunos/${pedro.id}/historico`, { token: poc })).dados.aluno.atencao_motivo, 'Reincidência em agressões');
+  // Remover.
+  assert.equal((await api(`/alunos/${pedro.id}/atencao`, { token: prof, metodo: 'DELETE' })).status, 403);
+  assert.equal((await api(`/alunos/${pedro.id}/atencao`, { token: poc, metodo: 'DELETE' })).status, 200);
+  lista = (await api('/alunos-atencao', { token: coord })).dados;
+  assert.equal(lista.length, 0);
+});

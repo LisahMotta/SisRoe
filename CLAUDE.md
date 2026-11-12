@@ -58,5 +58,8 @@ Multi-school (multi-tenant) incident log. Express backend + vanilla JS SPA (ES m
   ~2.8M-char parts (Vercel 4.5 MB request/response limit); one per turma (new replaces old). Batch photos:
   `casarFoto` in `public/js/imagem.js` matches file names to RA/name, then `PUT /alunos/:id/foto`.
   Busca ativa: `routes/busca.js` (access = `PERFIS_BUSCA`: gestão + agente, gerente, secretaria; not professor); WhatsApp only opens `wa.me` links (`public/js/whatsapp.js`), never sends by itself.
+- Atenção especial (as in SisRoe Malba): gestão-only flag on `alunos` (`atencao_motivo/por/em`), routes in `alunos.js`
+  (`/alunos-atencao`, `PUT|DELETE /alunos/:id/atencao`); shown in Alunos, history and occurrence detail for gestão only,
+  never to professors, in the PDF or in the CSV.
 - Integrity rules: the original relato is never edited (use notas), gravidade only goes up, ocorrências are cancelled
   (with a reason), never deleted.
