@@ -112,46 +112,56 @@ Para testar também no PostgreSQL, como em produção, use um banco vazio:
 TEST_DATABASE_URL=postgres://usuario@localhost:5432/sisroe_teste npm test
 ```
 
-## Como publicar de graça (Render + Neon)
+## Como publicar de graça
 
-O sistema fica em dois serviços gratuitos, que não pedem cartão de crédito:
+O banco de dados fica no **Neon** (gratuito). Para o site há duas opções gratuitas:
 
-| Peça | Serviço gratuito | O que o plano grátis oferece |
-|---|---|---|
-| Site (o programa Node.js) | [Render](https://render.com) | 750 horas por mês. **Dorme após 15 min sem acesso** e leva até ~1 min para acordar |
-| Banco de dados (PostgreSQL) | [Neon](https://neon.com) | 0,5 a 1 GB de dados e 100 horas de processamento por mês. Dorme após 5 min parado e acorda sozinho |
+| Opção | Site | Prós | Contras |
+|---|---|---|---|
+| **A — recomendada** | [Vercel](https://vercel.com) (plano Hobby) | Não pede cartão; não "dorme" por 1 minuto; publica a cada commit | Plano grátis só para uso **não comercial** (é o caso de uma ferramenta escolar sem fins lucrativos) |
+| B | [Render](https://render.com) (instância Free) | Servidor tradicional | Dorme após 15 min sem uso e leva até ~1 min para acordar; na criação, o plano pago vem marcado: escolha **Free** |
 
 > Os limites dos planos gratuitos mudam com o tempo. Confira nas páginas de preço antes de publicar.
-> Não use o banco gratuito do próprio Render: ele **expira em 30 dias**.
+> Não use o banco gratuito do Render: ele **expira em 30 dias**.
 
-### Passo 1 — Criar o banco no Neon
+### Passo 1 — Criar o banco no Neon (vale para as duas opções)
 
-1. Crie uma conta em neon.com (dá para entrar com a conta do GitHub).
-2. Crie um projeto chamado `sisroe`, região **AWS US East 1 (N. Virginia)**, a mesma região do site no Render.
-3. No painel do projeto, clique em **Connect** e copie a *connection string*. Ela começa com `postgresql://` e
-   termina com `?sslmode=require`. Guarde essa string: ela é a senha do banco, não compartilhe.
+1. Crie uma conta em neon.com (dá para entrar com a conta do GitHub). Não pede cartão.
+2. Crie um projeto chamado `sisroe`, região **AWS US East 1 (N. Virginia)**, a mesma região da Vercel e do Render.
+3. No painel do projeto, clique em **Connect**, deixe ligada a opção **Connection pooling** e copie a
+   *connection string*. Ela começa com `postgresql://` e tem `-pooler` no endereço. Guarde essa string com
+   cuidado: ela é a senha do banco.
 
 As tabelas são criadas sozinhas na primeira vez que o sistema liga.
 
-### Passo 2 — Publicar o site no Render
+### Passo 2 (opção A) — Publicar na Vercel
 
-1. Crie uma conta em render.com (entre com a conta do GitHub).
-2. Clique em **New → Blueprint** e escolha o repositório `SisRoe`. O Render lê o arquivo `render.yaml`.
-3. O Render vai pedir dois valores:
-   - `DATABASE_URL`: cole a connection string do Neon;
-   - `CADASTRO_CHAVE`: invente uma senha. Você passa essa senha só para as escolas que podem se cadastrar.
-     Sem ela, qualquer pessoa com o endereço do site conseguiria cadastrar uma escola.
-
-   O `JWT_SECRET` é criado automaticamente.
-4. Clique em **Apply**. Em alguns minutos o site fica no ar num endereço como `https://sisroe.onrender.com`.
+1. Crie uma conta em vercel.com com a conta do GitHub, no plano **Hobby** (gratuito).
+2. Clique em **Add New… → Project** e importe o repositório `SisRoe`. A Vercel lê o arquivo `vercel.json`;
+   não mude nada em *Build Settings*.
+3. Antes de clicar em *Deploy*, abra **Environment Variables** e crie:
+   - `DATABASE_URL`: a connection string do Neon;
+   - `JWT_SECRET`: uma frase longa e aleatória, com 40 caracteres ou mais. Ninguém precisa decorar;
+   - `CADASTRO_CHAVE`: uma senha que você passa só para as escolas autorizadas a se cadastrar;
+   - `PG_MAX_CONEXOES`: `1` (cada instância da Vercel atende uma pessoa por vez).
+4. Clique em **Deploy**. Em 1 ou 2 minutos o site fica no ar num endereço como `https://sisroe.vercel.app`.
 
 Cada novo commit na branch `main` publica a nova versão sozinho.
 
+### Passo 2 (opção B) — Publicar no Render
+
+1. Crie uma conta em render.com com a conta do GitHub.
+2. Clique em **New → Blueprint** e escolha o repositório `SisRoe`. O arquivo `render.yaml` já pede o plano **Free**.
+   Se aparecer pedido de cartão, confira se o plano escolhido é *Free* e não *Starter*.
+3. Preencha `DATABASE_URL` (connection string do Neon) e `CADASTRO_CHAVE`. O `JWT_SECRET` é criado sozinho.
+4. Clique em **Apply**. O site fica num endereço como `https://sisroe.onrender.com`.
+
 ### O que esperar do plano gratuito
 
-- **Primeiro acesso do dia demora.** Depois de 15 minutos sem uso, o site dorme. Quem abrir primeiro espera até
-  ~1 minuto, e depois tudo fica rápido. Avise as escolas: "se demorar, espere carregar; não clique de novo".
-- **O banco também dorme**, e o sistema está preparado para isso: se a conexão cair, ele reconecta sozinho.
+- **Banco que dorme.** O Neon dorme após 5 minutos parado; a primeira ação depois disso demora 1 ou 2 segundos a
+  mais. O sistema reconecta sozinho se a conexão cair.
+- **No Render**, além disso, o próprio site dorme: o primeiro acesso depois de 15 minutos sem uso pode levar até
+  ~1 minuto. Avise as escolas: "se demorar, espere carregar; não clique de novo".
 - **Espaço.** Cada ocorrência ocupa poucos KB, então o espaço gratuito comporta dezenas de milhares de registros.
   O painel do Neon mostra quanto já foi usado.
 - **Faça cópia de segurança.** Serviço gratuito não tem garantia. Uma vez por mês, exporte a planilha
@@ -189,6 +199,7 @@ server/
   routes/medidas.js   afastamento preventivo temporário e relatório circunstanciado (Res. SEDUC 68/2026)
   protocolo179.js     50 situações do Protocolo 179 — 3ª versão (gerado; ver ferramentas/)
   tipos.js            cria e atualiza o catálogo de tipos de cada escola
+api/index.js          entrada do sistema na Vercel (vercel.json: rotas e cabeçalhos de segurança)
 public/
   index.html          página única do site
   css/app.css         aparência (inclui o modo de impressão)
