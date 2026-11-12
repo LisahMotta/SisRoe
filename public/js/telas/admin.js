@@ -55,8 +55,8 @@ function novoContainer(el) {
 async function primeirosPassos(el) {
   const usuarios = await api('/usuarios');
   const temAlunos = estado.turmas.some((t) => Number(t.qtd_alunos) > 0);
-  const item = (ok, texto, link) => `<li class="${ok ? 'ok' : ''}"><span>${ok ? '✅' : '⬜'}</span>
-    <div>${texto} ${ok ? '' : `<a href="${link}">Fazer agora →</a>`}</div></li>`;
+  const item = (ok, texto, link) => `<li class="${ok ? 'ok' : ''}"><span data-icone="${ok ? 'ok' : 'relogio'}" aria-label="${ok ? 'Feito' : 'Pendente'}"></span>
+    <div>${texto} ${ok ? '' : `<a href="${link}">Fazer agora</a>`}</div></li>`;
   el.innerHTML = `<section class="cartao">
     <h2>Deixe a escola pronta para usar</h2>
     <ol class="checklist-inicio">
@@ -215,7 +215,7 @@ async function detalheTurma(caixa, t, el) {
     </form>
     <h3>Alunos (${alunos.length})</h3>
     ${alunos.length ? `<ul class="lista-alunos">${alunos.map((a) => `<li><span>${esc(a.nome)} <small>${esc(a.ra || '')}</small></span>
-      <button class="btn-icone" data-remover-aluno="${a.id}" aria-label="Remover ${esc(a.nome)} da turma">✕</button></li>`).join('')}</ul>`
+      <button class="btn-icone" data-remover-aluno="${a.id}" aria-label="Remover ${esc(a.nome)} da turma" data-icone="fechar"></button></li>`).join('')}</ul>`
       : '<p class="vazio">Nenhum aluno nesta turma.</p>'}
   </section>`;
   caixa.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -255,10 +255,10 @@ async function tipos(el) {
     .map(([k, v]) => `<option value="${k}" ${sel === k ? 'selected' : ''}>${k}) ${esc(v)}</option>`).join('');
   const optsGrav = (sel) => Object.entries(GRAVIDADES).map(([k, v]) => `<option value="${k}" ${sel === k ? 'selected' : ''}>${v}</option>`).join('');
   box.innerHTML = `
-    <div class="alerta alerta-info">Os tipos marcados <b>P179</b> são as 50 situações do <b>Protocolo 179 — 3ª versão</b>,
+    <div class="alerta alerta-info" data-icone="info"><div>Os tipos marcados <b>P179</b> são as 50 situações do <b>Protocolo 179 — 3ª versão</b>,
       com os passos de cada uma tirados do documento. Os tipos <b>A</b> são indisciplinas do dia a dia (seção 4.28).
       Tipos já usados não devem ser apagados: desative-os.
-      <div class="acoes"><button class="btn btn-peq" id="btn-atualizar-cat" type="button">Atualizar catálogo do Protocolo 179</button></div></div>
+      <div class="acoes"><button class="btn btn-peq" id="btn-atualizar-cat" type="button">Atualizar catálogo do Protocolo 179</button></div></div></div>
     <form id="form-tipo" class="cartao">
       <h2>Novo tipo</h2>
       <div class="grade-4">

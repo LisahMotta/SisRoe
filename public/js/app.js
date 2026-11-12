@@ -4,7 +4,7 @@
 // render(conteudo, parametros) que desenha a tela dentro de <main>.
 // O endereço depois do "#" decide a tela: #/painel, #/ocorrencia/12 …
 import { api, getSessao, limparSessao } from './api.js';
-import { $, $$, esc, avisarErro } from './ui.js';
+import { $, $$, esc, avisarErro, aplicarIcones } from './ui.js';
 import { PERFIS, PERFIS_GESTAO, PERFIS_ADMIN } from './catalogo.js';
 
 // Dados carregados após o login e usados por várias telas.
@@ -41,11 +41,22 @@ async function carregarSessao() {
   if (!dados.usuario.trocar_senha) await recarregarCadastros();
 }
 
+// Iniciais para o avatar (ex.: "Maria da Silva" → "MS").
+function iniciais(nome) {
+  const partes = String(nome || '').split(/\s+/).filter((p) => p.length > 2 || /^[A-ZÀ-Ú]/.test(p));
+  return ((partes[0]?.[0] || '') + (partes.length > 1 ? partes[partes.length - 1][0] : '')).toUpperCase() || '?';
+}
+
 function montarTopo() {
   const u = estado.usuario;
+  document.body.classList.add('logado');
+  $('#lateral').hidden = false;
   $('#topo').hidden = false;
   $('#topo-escola-nome').textContent = estado.escola?.nome || 'SisRoe';
-  $('#topo-usuario').textContent = `${u.nome} · ${PERFIS[u.perfil] || u.perfil}`;
+  $('#topo-escola-nome').title = estado.escola?.nome || '';
+  $('#usuario-nome').textContent = u.nome;
+  $('#topo-usuario').textContent = PERFIS[u.perfil] || u.perfil;
+  $('#usuario-avatar').textContent = iniciais(u.nome);
   $$('[data-gestao]').forEach((el) => { el.hidden = !ehGestao(); });
   $$('[data-admin]').forEach((el) => { el.hidden = !ehAdmin(); });
 }
@@ -71,16 +82,23 @@ async function roteador() {
     if (estado.usuario.trocar_senha && rota !== 'trocar-senha') return navegar('#/trocar-senha');
     montarTopo();
   } else {
+    document.body.classList.remove('logado');
     $('#topo').hidden = true;
+    $('#lateral').hidden = true;
   }
 
-  $$('#menu a').forEach((a) => a.classList.toggle('ativo', a.dataset.rota === rota));
+  $$('#lateral a[data-rota]').forEach((a) => {
+    const ativo = a.dataset.rota === rota;
+    a.classList.toggle('ativo', ativo);
+    if (ativo) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
   fecharMenu();
   conteudo.innerHTML = '<p class="carregando">Carregando…</p>';
   try {
     const modulo = await ROTAS[rota]();
     if (minha !== renderizando) return; // o usuário já trocou de tela
     await modulo.render(conteudo, params);
+    aplicarIcones(conteudo);
     conteudo.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   } catch (e) {
@@ -97,15 +115,33 @@ export function sair() {
   navegar('#/login');
 }
 
+// No celular o menu lateral vira uma gaveta, com fundo escuro atrás.
+function abrirMenu() {
+  $('#lateral').classList.add('aberto');
+  $('#lateral-fundo').hidden = false;
+  $('#btn-menu').setAttribute('aria-expanded', 'true');
+  $('#lateral a[data-rota]')?.focus();
+}
 function fecharMenu() {
-  $('#menu').classList.remove('aberto');
+  if (!$('#lateral').classList.contains('aberto')) return;
+  $('#lateral').classList.remove('aberto');
+  $('#lateral-fundo').hidden = true;
   $('#btn-menu').setAttribute('aria-expanded', 'false');
 }
 
-$('#btn-menu').addEventListener('click', () => {
-  const aberto = $('#menu').classList.toggle('aberto');
-  $('#btn-menu').setAttribute('aria-expanded', String(aberto));
+aplicarIcones(document);
+// Clicar no link da tela em que a pessoa já está recomeça a tela (ex.: "Nova ocorrência" volta ao passo 1).
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href^="#/"]');
+  if (a && a.getAttribute('href') === location.hash && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    navegar(location.hash);
+  }
 });
+$('#btn-menu').addEventListener('click', abrirMenu);
+$('#btn-fechar-menu').addEventListener('click', () => { fecharMenu(); $('#btn-menu').focus(); });
+$('#lateral-fundo').addEventListener('click', fecharMenu);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharMenu(); });
 $('#btn-sair').addEventListener('click', sair);
 window.addEventListener('hashchange', roteador);
 roteador();

@@ -1,7 +1,7 @@
 // telas/nova.js — registro de uma nova ocorrência em 3 passos:
 // 1) categoria  2) tipo  3) dados, alunos e relato.
 import { api } from '../api.js';
-import { $, $$, esc, avisar, avisarErro, comCarregando, hojeISO, agoraHora, seloGravidade } from '../ui.js';
+import { $, $$, esc, avisar, avisarErro, comCarregando, hojeISO, agoraHora, seloGravidade, icone } from '../ui.js';
 import { estado, navegar } from '../app.js';
 import { CATEGORIAS, LOCAIS, PAPEIS_ALUNO, RES68, ATIVIDADES_ESTUDO_DIRIGIDO } from '../catalogo.js';
 import { htmlPassos, htmlRegraBO, nomeMacro } from '../passos.js';
@@ -35,10 +35,11 @@ function etapaCategoria(etapa, el) {
   etapa.innerHTML = `<div class="cards-categoria">
     ${Object.entries(CATEGORIAS).map(([k, c]) => `
       <button class="card-cat cat-borda-${k}" data-cat="${k}">
-        <strong>${esc(c.nome)}</strong><span>${esc(c.resumo)}</span>
+        <strong>${icone({ urgencia: 'sirene', grave: 'escudo', administrativa: 'livro' }[k])}${esc(c.nome)}</strong><span>${esc(c.resumo)}</span>
       </button>`).join('')}
     </div>
-    <p class="ajuda">Em caso de risco à vida, <b>primeiro</b> acione o socorro (PM 190 · SAMU 192 · Bombeiros 193) e a direção. O registro vem depois.</p>`;
+    <div class="alerta alerta-perigo" data-icone="alerta"><span>Em caso de risco à vida, <b>primeiro</b> acione o socorro
+      (PM 190 · SAMU 192 · Bombeiros 193) e a direção. O registro vem depois.</span></div>`;
   $$('[data-cat]', etapa).forEach((b) => b.addEventListener('click', () => {
     categoria = b.dataset.cat; passo = 2; desenhar(el);
   }));
@@ -59,7 +60,7 @@ function etapaTipo(etapa, el) {
   etapa.innerHTML = `
     <div class="cartao">
       <div class="cab-tela"><h2>${esc(CATEGORIAS[categoria].nome)}</h2>
-        <button class="btn-link" id="voltar1">← trocar categoria</button></div>
+        <button class="btn-link" id="voltar1" data-icone="voltar">Trocar categoria</button></div>
       <input type="search" id="busca-tipo" placeholder="Digite para filtrar (ex.: boné, celular, arma, bullying)…" aria-label="Filtrar tipos">
       <div id="lista-tipos">
         ${ordem.map((m) => `<section class="grupo-tipos">
@@ -96,7 +97,7 @@ function caixaProtocolo() {
   return `<fieldset class="protocolo prot-${categoria}">
       <legend>${titulo}</legend>
       ${urg ? `<div class="telefones">
-          <a href="tel:190">🚓 PM <b>190</b></a><a href="tel:192">🚑 SAMU <b>192</b></a><a href="tel:193">🚒 Bombeiros <b>193</b></a></div>` : ''}
+          <a href="tel:190" data-icone="telefone">PM <b>190</b></a><a href="tel:192" data-icone="ambulancia">SAMU <b>192</b></a><a href="tel:193" data-icone="fogo">Bombeiros <b>193</b></a></div>` : ''}
       ${htmlPassos(passos)}
       ${!tipoDet.passos_proprios ? `<div id="aviso-estudo" class="aviso-norma" hidden>
           <b>Estudo dirigido (Art. 7º, IX e Art. 8º):</b> sempre sob supervisão de integrante da equipe gestora, com atividades
@@ -306,6 +307,6 @@ function desenharSelecionados(etapa) {
         <select data-papel="${esc(k)}" aria-label="Papel de ${esc(a.nome)}">
           ${Object.entries(PAPEIS_ALUNO).map(([v, t]) => `<option value="${v}" ${a.papel === v ? 'selected' : ''}>${t}</option>`).join('')}
         </select>
-        <button type="button" class="btn-icone" data-remover="${esc(k)}" aria-label="Remover ${esc(a.nome)}">✕</button></li>`).join('')}
+        <button type="button" class="btn-icone" data-remover="${esc(k)}" aria-label="Remover ${esc(a.nome)}" data-icone="fechar"></button></li>`).join('')}
     </ul>`;
 }

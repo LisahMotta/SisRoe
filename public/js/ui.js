@@ -1,5 +1,15 @@
 // ui.js — funções de interface reutilizadas por todas as telas.
 import { CATEGORIAS, GRAVIDADES, STATUS } from './catalogo.js';
+import { icone } from './icones.js';
+
+export { icone };
+
+/** Coloca o ícone em todo elemento com data-icone="nome" (uma vez só). */
+export function aplicarIcones(raiz = document) {
+  raiz.querySelectorAll('[data-icone]').forEach((el) => {
+    if (!el.querySelector(':scope > .ico')) el.insertAdjacentHTML('afterbegin', icone(el.dataset.icone));
+  });
+}
 
 /** Escapa texto antes de colocar no HTML (evita que um relato "quebre" a página ou injete código). */
 export function esc(v) {
@@ -42,8 +52,13 @@ export function avisar(msg, tipo = 'ok') {
   }
   const el = document.createElement('div');
   el.className = `aviso aviso-${tipo}`;
-  el.textContent = msg;
+  el.setAttribute('role', tipo === 'erro' ? 'alert' : 'status');
+  el.innerHTML = icone(tipo === 'erro' ? 'erro' : 'ok');
+  el.append(document.createTextNode(msg));
+  el.title = 'Clique para fechar';
+  el.addEventListener('click', () => el.remove());
   caixa.append(el);
+  while (caixa.children.length > 3) caixa.firstElementChild.remove();
   setTimeout(() => el.remove(), tipo === 'erro' ? 6000 : 3500);
 }
 export const avisarErro = (e) => avisar(e?.message || String(e), 'erro');
@@ -55,12 +70,13 @@ export function abrirModal(titulo, html) {
   fundo.className = 'modal-fundo';
   fundo.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
       <div class="modal-topo"><h2 id="modal-titulo">${esc(titulo)}</h2>
-      <button class="btn-icone" data-fechar aria-label="Fechar">✕</button></div>
+      <button class="btn-icone" data-fechar aria-label="Fechar">${icone('fechar')}</button></div>
       <div class="modal-corpo">${html}</div></div>`;
   fundo.addEventListener('click', (ev) => {
     if (ev.target === fundo || ev.target.closest('[data-fechar]')) fecharModal();
   });
   document.body.append(fundo);
+  aplicarIcones(fundo);
   const primeiro = fundo.querySelector('input, select, textarea, button:not([data-fechar])');
   if (primeiro) primeiro.focus();
   return fundo;

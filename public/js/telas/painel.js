@@ -6,6 +6,17 @@ import { CATEGORIAS, NIVEIS, RES68, MACROS } from '../catalogo.js';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
+// Gráfico de colunas (usado para os 12 meses): mais compacto que 12 linhas de barras.
+function colunas(itens, rotulo, valor) {
+  if (!itens.length || itens.every((i) => !valor(i))) return '<p class="vazio">Sem registros ainda.</p>';
+  const max = Math.max(...itens.map(valor), 1);
+  return `<ul class="colunas" role="list">${itens.map((i) => `
+      <li title="${esc(rotulo(i))}: ${valor(i)}">
+        <span class="coluna-valor">${valor(i) || ''}</span>
+        <span class="coluna-trilho"><span class="coluna" style="height:${(valor(i) / max) * 100}%"></span></span>
+        <span class="coluna-rotulo">${esc(rotulo(i))}</span></li>`).join('')}</ul>`;
+}
+
 function barras(itens, rotulo, valor, classe = '') {
   if (!itens.length || itens.every((i) => !valor(i))) return '<p class="vazio">Sem registros ainda.</p>';
   const max = Math.max(...itens.map(valor), 1);
@@ -30,11 +41,11 @@ export async function render(el) {
       <a class="btn btn-primario" href="#/nova">+ Nova ocorrência</a>
     </div>
 
-    ${semTurmas && ehAdmin() ? `<div class="alerta alerta-info">
+    ${semTurmas && ehAdmin() ? `<div class="alerta alerta-info" data-icone="info"><span>
         <b>Primeiros passos:</b> cadastre as turmas, os alunos e os servidores da escola.
-        <a href="#/admin/primeiros-passos">Ir para a administração →</a></div>` : ''}
-    ${p.urgentesAbertas && gestao ? `<a class="alerta alerta-perigo" href="#/ocorrencias">
-        <b>${p.urgentesAbertas}</b> ocorrência(s) do Protocolo 179 (urgência/grave) ainda não encerrada(s). Ver lista →</a>` : ''}
+        <a href="#/admin/primeiros-passos">Ir para a administração</a></span></div>` : ''}
+    ${p.urgentesAbertas && gestao ? `<a class="alerta alerta-perigo" href="#/ocorrencias" data-icone="alerta"><span>
+        <b>${p.urgentesAbertas}</b> ocorrência(s) do Protocolo 179 (urgência/grave) ainda não encerrada(s). Ver lista</span></a>` : ''}
 
     <div class="numeros">
       <div class="numero"><span>${p.mes}</span>no mês</div>
@@ -51,7 +62,7 @@ export async function render(el) {
       </section>
       <section class="cartao">
         <h2>Por mês</h2>
-        ${barras(p.porMes, (i) => MESES[i.mes - 1], (i) => i.qtd)}
+        ${colunas(p.porMes, (i) => MESES[i.mes - 1], (i) => i.qtd)}
       </section>
       <section class="cartao">
         <h2>Por macrocategoria do Protocolo 179</h2>
@@ -87,7 +98,7 @@ export async function render(el) {
           <span class="desc">${esc(o.tipo_descricao)}<small>${dataBR(o.data)} · ${esc(o.turma_nome || 'Sem turma')}
             ${o.alunos.length ? ' · ' + esc(o.alunos.map((a) => a.nome).join(', ')) : ''}</small></span>
           ${seloCategoria(o.categoria)} ${seloStatus(o.status)}</a></li>`).join('')}</ul>`
-        : '<p class="vazio">Nada por aqui. 🎉</p>'}
-      <p><a href="#/ocorrencias">Ver todas →</a></p>
+        : '<p class="vazio">Nenhuma ocorrência aguardando providências.</p>'}
+      <p><a href="#/ocorrencias" class="btn-link">Ver todas as ocorrências</a></p>
     </section>`;
 }
