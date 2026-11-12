@@ -37,5 +37,8 @@ Multi-school (multi-tenant) incident log. Express backend + vanilla JS SPA (ES m
   requires `analise_inicial`); `data_conhecimento`, `manifestacao_estudante`. `routes/medidas.js` holds the afastamento
   preventivo rules (admin only, Nível III, ≤5 dias letivos, one extension ≤ initial with Conselho date + family notice)
   and the Art. 15 report data. New columns go in `MIGRACOES` in `db.js` (ALTER TABLE, errors ignored).
+- Hosting: `api/index.js` + `vercel.json` (Vercel serverless: static `public/` served by the CDN, `/api/*` goes to the
+  Express app; set `PG_MAX_CONEXOES=1`) and `render.yaml` (Render free web service). DB is Neon (PostgreSQL).
+  `db.init()` runs on every cold start and must stay idempotent and race-tolerant.
 - Integrity rules: the original relato is never edited (use notas), gravidade only goes up, ocorrências are cancelled
   (with a reason), never deleted.

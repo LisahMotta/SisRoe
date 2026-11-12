@@ -216,7 +216,16 @@ export async function init() {
     lite = new DatabaseSync(file);
     lite.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   }
-  for (const stmt of schema()) await run(stmt);
+  for (const stmt of schema()) {
+    try {
+      await run(stmt);
+    } catch (e) {
+      // Em hospedagem "serverless" (ex.: Vercel) várias instâncias podem ligar ao mesmo
+      // tempo e criar a mesma tabela juntas; no PostgreSQL a segunda recebe "duplicate key".
+      // A tabela já existe, então seguimos.
+      if (!/already exists|duplicate key/i.test(e.message)) throw e;
+    }
+  }
   // Colunas acrescentadas depois da primeira versão. Bancos novos e antigos
   // passam por aqui; se a coluna já existe, o erro é ignorado.
   for (const m of MIGRACOES) {

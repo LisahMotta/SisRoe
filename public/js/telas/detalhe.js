@@ -19,16 +19,16 @@ export async function render(el, [id]) {
 
   el.innerHTML = `
     <div class="cab-tela nao-imprimir">
-      <a href="#/ocorrencias" class="btn-link">← Voltar</a>
+      <a href="#/ocorrencias" class="btn-link" data-icone="voltar">Voltar às ocorrências</a>
       <div class="linha-btn">
-        <button class="btn" id="btn-imprimir">🖨 Imprimir / PDF</button>
-        ${ehAdmin() && o.status !== 'cancelada' ? '<button class="btn btn-perigo-claro" id="btn-cancelar">Cancelar registro</button>' : ''}
+        <button class="btn" id="btn-imprimir" data-icone="imprimir">Imprimir / PDF</button>
+        ${ehAdmin() && o.status !== 'cancelada' ? '<button class="btn btn-perigo-claro" id="btn-cancelar" data-icone="lixeira">Cancelar registro</button>' : ''}
       </div>
     </div>
 
-    ${o.status === 'cancelada' ? `<div class="alerta alerta-perigo">Registro <b>cancelado</b>. Motivo: ${esc(o.motivo_cancelamento)}</div>` : ''}
-    ${ehGestao() && reincidente ? `<div class="alerta alerta-info nao-imprimir">Há estudante com 2 ou mais ocorrências anteriores.
-      Considere o histórico na classificação do nível de resposta (Art. 5º, § 1º, ${RES68}).</div>` : ''}
+    ${o.status === 'cancelada' ? `<div class="alerta alerta-perigo" data-icone="alerta"><span>Registro <b>cancelado</b>. Motivo: ${esc(o.motivo_cancelamento)}</span></div>` : ''}
+    ${ehGestao() && reincidente ? `<div class="alerta alerta-info nao-imprimir" data-icone="info"><span>Há estudante com 2 ou mais ocorrências anteriores.
+      Considere o histórico na classificação do nível de resposta (Art. 5º, § 1º, ${RES68}).</span></div>` : ''}
 
     <article class="documento cartao">
       <header class="doc-cab">
@@ -105,7 +105,7 @@ export async function render(el, [id]) {
       <h2>Acrescentar nota</h2>
       <p class="ajuda">O relato original não pode ser alterado. Use as notas para complementar, corrigir ou registrar novidades.</p>
       <form id="form-nota"><textarea name="texto" rows="3" maxlength="4000" required placeholder="Ex.: Conversa com a mãe realizada em 12/03; combinado acompanhamento semanal."></textarea>
-        <button class="btn btn-primario" type="submit">Salvar nota</button></form>
+        <button class="btn btn-primario" type="submit" data-icone="enviar">Salvar nota</button></form>
     </section>
 
     ${podeAcompanhar ? formAcompanhamento(o, passos, feitos) : ''}
@@ -277,7 +277,7 @@ function secaoAfastamentos(o) {
       const vigente = a.status === 'vigente';
       return `<div class="afastamento ${vigente ? 'vigente' : ''}" data-afast="${a.id}">
         <div class="cab-tela"><h3>${esc(a.aluno_nome)} <span class="selo ${vigente ? 'st-aberta' : 'st-encerrada'}">${vigente ? 'Vigente' : 'Encerrado'}</span></h3>
-          <button class="btn btn-peq" data-carta="${a.id}">🖨 Comunicação à família</button></div>
+          <button class="btn btn-peq" data-carta="${a.id}" data-icone="imprimir">Comunicação à família</button></div>
         <dl class="doc-campos">
           <div><dt>Início e prazo</dt><dd>${dataBR(a.data_inicio)} · ${a.dias_letivos} dia(s) letivo(s)
             ${a.prorrogado ? `<br>Prorrogado por ${a.prorrogacao_dias} dia(s) — Conselho de Escola em ${dataBR(a.prorrogacao_conselho_data)}` : ''}</dd></div>
@@ -436,7 +436,7 @@ function modalCarta(o, a) {
       <label>I — Descrição objetiva da situação * <textarea name="descricao" rows="4" required>${esc(a.motivacao)}</textarea></label>
       <label>IV — Próximos procedimentos <textarea name="proximos" rows="3">Reunião com a família para escuta e definição do plano de acompanhamento; retorno às atividades presenciais ao final do prazo, com acompanhamento pedagógico.</textarea></label>
       <label>V — Canais de manifestação da família <textarea name="canais" rows="2">Secretaria da escola${e.telefone ? `, telefone ${esc(e.telefone)}` : ''}, ou por escrito à Direção. A família pode apresentar manifestação escrita ou oral e documentos.</textarea></label>
-      <div class="acoes"><button class="btn btn-primario" type="submit">🖨 Imprimir</button><button class="btn" type="button" data-fechar>Fechar</button></div>
+      <div class="acoes"><button class="btn btn-primario" type="submit" data-icone="imprimir">Imprimir</button><button class="btn" type="button" data-fechar>Fechar</button></div>
     </form>`);
   $('#form-carta', m).addEventListener('submit', (ev) => {
     ev.preventDefault();

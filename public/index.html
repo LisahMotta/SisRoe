@@ -3,34 +3,63 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0b3d91">
+  <meta name="theme-color" content="#0f2a4a">
   <title>SisRoe — Registro de Ocorrências Escolares</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b3d91'/%3E%3Cpath d='M9 8h14v3H12v4h9v3h-9v6H9z' fill='white'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231e40af'/%3E%3Cpath d='M16 6l8 3v6c0 5-3.4 8.6-8 11-4.6-2.4-8-6-8-11V9z' fill='none' stroke='white' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M12.5 16l2.5 2.5 4.5-5' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
-  <header id="topo" class="topo" hidden>
-    <div class="topo-escola">
-      <strong id="topo-escola-nome">SisRoe</strong>
-      <span id="topo-usuario" class="topo-sub"></span>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <!-- Menu lateral: fixo no computador, gaveta no celular -->
+  <aside id="lateral" class="lateral" hidden aria-label="Menu principal">
+    <div class="lateral-marca">
+      <span class="marca-icone" aria-hidden="true"></span>
+      <div class="marca-texto">
+        <strong>SisRoe</strong>
+        <span id="topo-escola-nome" class="marca-escola">—</span>
+      </div>
+      <button id="btn-fechar-menu" class="btn-icone lateral-fechar" aria-label="Fechar menu" data-icone="fechar"></button>
     </div>
-    <button id="btn-menu" class="btn-icone topo-menu-btn" aria-label="Abrir menu" aria-expanded="false">☰</button>
-    <nav id="menu" class="menu" aria-label="Menu principal">
-      <a href="#/painel" data-rota="painel">Início</a>
-      <a href="#/nova" data-rota="nova" class="menu-destaque">+ Nova ocorrência</a>
-      <a href="#/ocorrencias" data-rota="ocorrencias">Ocorrências</a>
-      <a href="#/alunos" data-rota="alunos" data-gestao>Alunos</a>
-      <a href="#/admin" data-rota="admin" data-admin>Administração</a>
-      <a href="#/conta" data-rota="conta">Minha conta</a>
-      <button id="btn-sair" class="menu-sair">Sair</button>
+
+    <nav id="menu" class="menu">
+      <a href="#/nova" data-rota="nova" class="menu-destaque" data-icone="mais">Nova ocorrência</a>
+      <p class="menu-secao">Acompanhamento</p>
+      <a href="#/painel" data-rota="painel" data-icone="inicio">Início</a>
+      <a href="#/ocorrencias" data-rota="ocorrencias" data-icone="lista">Ocorrências</a>
+      <a href="#/alunos" data-rota="alunos" data-gestao data-icone="alunos">Alunos</a>
+      <p class="menu-secao" data-admin>Escola</p>
+      <a href="#/admin" data-rota="admin" data-admin data-icone="admin">Administração</a>
     </nav>
-  </header>
 
-  <main id="conteudo" class="conteudo" tabindex="-1">
-    <p class="carregando">Carregando…</p>
-  </main>
+    <div class="lateral-rodape">
+      <a href="#/conta" data-rota="conta" class="usuario-cartao" title="Minha conta">
+        <span class="avatar" id="usuario-avatar" aria-hidden="true">?</span>
+        <span class="usuario-dados">
+          <strong id="usuario-nome">—</strong>
+          <span id="topo-usuario">—</span>
+        </span>
+      </a>
+      <button id="btn-sair" class="menu-sair" data-icone="sair">Sair</button>
+    </div>
+  </aside>
+  <div id="lateral-fundo" class="lateral-fundo" hidden></div>
 
-  <footer class="rodape-app">SisRoe · Protocolo 179 · CONVIVA SP · Ocorrências administrativas</footer>
+  <div class="principal">
+    <!-- Barra superior: só aparece no celular -->
+    <header id="topo" class="topo" hidden>
+      <button id="btn-menu" class="btn-icone" aria-label="Abrir menu" aria-expanded="false" aria-controls="lateral" data-icone="menu"></button>
+      <span class="topo-marca"><span class="marca-icone pequeno" aria-hidden="true"></span><strong>SisRoe</strong></span>
+      <a href="#/nova" class="btn btn-primario btn-peq topo-nova" data-icone="mais">Nova</a>
+    </header>
+
+    <main id="conteudo" class="conteudo" tabindex="-1">
+      <p class="carregando">Carregando…</p>
+    </main>
+
+    <footer class="rodape-app">SisRoe · Protocolo 179 (3ª versão) · Res. SEDUC nº 68/2026 · CONVIVA SP</footer>
+  </div>
 
   <script type="module" src="/js/app.js"></script>
 </body>

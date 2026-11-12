@@ -49,15 +49,15 @@ async function historico(el, id) {
   const { aluno, ocorrencias } = await api(`/alunos/${id}/historico`);
   const porCat = Object.keys(CATEGORIAS).map((c) => [c, ocorrencias.filter((o) => o.categoria === c).length]);
   el.innerHTML = `
-    <a href="#/alunos" class="btn-link">← Buscar outro aluno</a>
+    <a href="#/alunos" class="btn-link" data-icone="voltar">Buscar outro aluno</a>
     <h1>${esc(aluno.nome)}</h1>
     <div class="cab-tela"><p>${esc(aluno.turma_nome || 'Sem turma')}${aluno.ra ? ` · RA ${esc(aluno.ra)}` : ''}</p>
-      ${ehAdmin() && ocorrencias.length ? '<button class="btn" id="btn-relatorio">📄 Rascunho do relatório circunstanciado</button>' : ''}</div>
+      ${ehAdmin() && ocorrencias.length ? '<button class="btn" id="btn-relatorio" data-icone="documento">Rascunho do relatório circunstanciado</button>' : ''}</div>
     <div class="numeros">
       <div class="numero"><span>${ocorrencias.length}</span>ocorrências</div>
       ${porCat.map(([c, n]) => `<div class="numero cat-borda-${c}"><span>${n}</span>${esc(CATEGORIAS[c].nome)}</div>`).join('')}
     </div>
-    ${ocorrencias.length >= 3 ? '<div class="alerta alerta-info">Reincidência: avalie conversa com a família, plano de acompanhamento e encaminhamentos.</div>' : ''}
+    ${ocorrencias.length >= 3 ? '<div class="alerta alerta-info" data-icone="info"><span><b>Reincidência:</b> avalie conversa com a família, plano de acompanhamento e encaminhamentos.</span></div>' : ''}
     <section class="cartao">
       ${ocorrencias.length ? `<ul class="lista-simples">${ocorrencias.map((o) => `
         <li><a href="#/ocorrencia/${o.id}"><span class="num">${esc(o.numero)}</span>

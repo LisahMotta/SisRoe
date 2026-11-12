@@ -12,8 +12,8 @@ export async function render(el) {
     <div class="cab-tela">
       <h1>${ehGestao() ? 'Ocorrências da escola' : 'Minhas ocorrências'}</h1>
       <div class="linha-btn">
-        ${ehGestao() ? '<button class="btn" id="btn-csv">⬇ Exportar planilha</button>' : ''}
-        <a class="btn btn-primario" href="#/nova">+ Nova</a>
+        ${ehGestao() ? '<button class="btn" id="btn-csv" data-icone="baixar">Exportar planilha</button>' : ''}
+        <a class="btn btn-primario" href="#/nova" data-icone="mais">Nova ocorrência</a>
       </div>
     </div>
     <form id="filtros" class="cartao filtros">

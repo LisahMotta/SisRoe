@@ -7,12 +7,18 @@ export async function render(el) {
   el.innerHTML = `
     <section class="tela-login">
       <div class="login-marca">
-        <div class="logo-quadro" aria-hidden="true">S</div>
+        <span class="marca-icone logo-quadro" aria-hidden="true"></span>
         <h1>SisRoe</h1>
-        <p>Registro de ocorrências escolares<br><small>Protocolo 179 · CONVIVA SP</small></p>
+        <p>Registro e acompanhamento de ocorrências escolares para a rede estadual de São Paulo.</p>
+        <ul class="login-pontos">
+          <li><span data-icone="escudo"></span><span><b>Protocolo 179 — 3ª versão.</b> As 50 situações do DOC Conviva, cada uma com o seu passo a passo.</span></li>
+          <li><span data-icone="balanca"></span><span><b>Resolução SEDUC nº 68/2026.</b> Intervenções pedagógicas, níveis de resposta e afastamento preventivo.</span></li>
+          <li><span data-icone="cadeado"></span><span><b>Sigilo e LGPD.</b> Cada escola vê apenas os próprios dados, e as ações ficam registradas.</span></li>
+        </ul>
       </div>
       <form id="form-login" class="cartao" novalidate>
         <h2>Entrar</h2>
+        <p class="sub">Use o código da sua escola e o seu usuário.</p>
         <label>Código da escola
           <input name="codigo" required autocomplete="organization" autocapitalize="none" value="${esc(ultimoCodigo())}"
                  placeholder="ex.: ee-malba">
@@ -25,8 +31,8 @@ export async function render(el) {
         </label>
         <button class="btn btn-primario btn-largo" type="submit">Entrar</button>
         <p class="ajuda">Esqueceu a senha? Peça à direção da sua escola para gerar uma senha provisória.</p>
+        <p class="login-cadastro">Sua escola ainda não usa o SisRoe? <a href="#/cadastro">Cadastre a escola</a></p>
       </form>
-      <p class="login-cadastro">Sua escola ainda não usa o SisRoe? <a href="#/cadastro">Cadastre a escola</a></p>
     </section>`;
 
   const form = $('#form-login', el);
@@ -52,7 +58,7 @@ export async function renderCadastro(el) {
   el.innerHTML = `
     <section class="tela-login tela-cadastro">
       <div class="login-marca">
-        <div class="logo-quadro" aria-hidden="true">S</div>
+        <span class="marca-icone logo-quadro" aria-hidden="true"></span>
         <h1>Cadastrar escola</h1>
         <p>Quem faz o cadastro vira o(a) administrador(a) da escola no sistema e depois cadastra os demais servidores.</p>
       </div>
@@ -95,7 +101,7 @@ export async function renderCadastro(el) {
             <input name="chave" required autocomplete="off"><small>Fornecida por quem administra este servidor.</small></label>` : ''}
         <button class="btn btn-primario btn-largo" type="submit">Cadastrar escola</button>
       </form>
-      <p class="login-cadastro"><a href="#/login">← Voltar ao login</a></p>
+      <p class="login-cadastro"><a href="#/login" class="btn-link" data-icone="voltar">Voltar ao login</a></p>
     </section>`;
 
   const form = $('#form-cadastro', el);
