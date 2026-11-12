@@ -23,6 +23,9 @@ Multi-school (multi-tenant) incident log. Express backend + vanilla JS SPA (ES m
 - **Tenant rule:** every query on school data MUST filter by `escola_id = req.usuario.escola_id`, including lookups
   of ids that come from the client (tipo_id, turma_id, aluno ids). `test/api.test.js` has isolation tests: extend
   them when adding routes.
+- Login: per-account lockout in the DB (`falhas_login`/`bloqueado_ate`, 8 failures → 15 min; a password reset unlocks),
+  dummy bcrypt compare for unknown users. Open school registration has a honeypot field (`site`) and a daily cap
+  (`LIMITE_CADASTROS_DIA`, default 50). CSV export neutralizes formulas. Push text never includes chat content.
 - `server/auth.js`: JWT holds `{uid, eid}`. The user is reloaded on every request (deactivation takes effect right away).
   `trocar_senha` blocks everything except `/eu` and `/minha-senha`. Roles: `exigeGestao` (poc/coordenador/vice/diretor),
   `exigeAdmin` (system admin: vice/diretor/master), `exigeDirecao` (Res. 68 decisions + cancel: vice/diretor only),

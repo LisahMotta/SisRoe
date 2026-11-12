@@ -152,7 +152,7 @@ r.post('/usuarios/:id/resetar-senha', exigeGestaoOuAdmin, rota(async (req, res) 
     throw new ErroHttp(403, 'Apenas o(a) diretor(a) pode gerar nova senha para o usuário master.');
   }
   const provisoria = senhaProvisoria();
-  await db.run('UPDATE usuarios SET senha_hash = ?, trocar_senha = 1 WHERE id = ? AND escola_id = ?',
+  await db.run('UPDATE usuarios SET senha_hash = ?, trocar_senha = 1, falhas_login = 0, bloqueado_ate = NULL WHERE id = ? AND escola_id = ?',
     [await bcrypt.hash(provisoria, 10), id, eid]);
   await db.auditar(eid, req.usuario, 'senha_resetada', { id });
   res.json({ senhaProvisoria: provisoria });

@@ -650,3 +650,38 @@ test('Carômetro em arquivo (PDF/JPG em partes) e lista para fotos em lote', asy
   assert.equal((await api('/alunos-lista', { token: P })).status, 403);
   assert.equal((await api('/alunos-lista', { token: outra })).dados.length, 0);
 });
+
+test('Segurança: bloqueio após senhas erradas, armadilha do cadastro e CSV sem fórmulas', async () => {
+  const E = await cadastrarEscola('escola-seg');
+  const P = await criarUsuario(E, 'escola-seg', '51111111', 'professor');
+  const login = (senha) => api('/login', { metodo: 'POST', corpo: { codigo: 'escola-seg', login: '51111111', senha } });
+  // 7 erros não bloqueiam; o acerto zera a contagem.
+  for (let i = 0; i < 7; i++) assert.equal((await login('errada123')).status, 401);
+  assert.equal((await login('NovaSenha99')).status, 200);
+  // 8 erros seguidos bloqueiam, até com a senha certa.
+  for (let i = 0; i < 8; i++) assert.equal((await login('errada123')).status, 401);
+  const bloq = await login('NovaSenha99');
+  assert.equal(bloq.status, 429);
+  assert.match(bloq.dados.erro, /direção ou à coordenação/);
+  // Usuário inexistente e escola inexistente: mesma resposta.
+  assert.equal((await api('/login', { metodo: 'POST', corpo: { codigo: 'escola-seg', login: '99999999', senha: 'x' } })).dados.erro,
+    (await api('/login', { metodo: 'POST', corpo: { codigo: 'nao-existe', login: '99999999', senha: 'x' } })).dados.erro);
+  // A direção gera nova senha: desbloqueia.
+  const prof = (await api('/usuarios', { token: E })).dados.find((u) => u.login === '51111111');
+  const nova = (await api(`/usuarios/${prof.id}/resetar-senha`, { token: E, metodo: 'POST' })).dados.senhaProvisoria;
+  assert.equal((await login(nova)).status, 200);
+  // O bloqueio de uma escola não afeta o mesmo login em outra.
+  // Armadilha para robôs no cadastro.
+  const robo = await api('/escolas', { metodo: 'POST', corpo: { site: 'http://spam', escola: { nome: 'Robô', codigo: 'robo-1' },
+    admin: { nome: 'Robô', login: 'robo1', senha: 'Senha1234' } } });
+  assert.equal(robo.status, 400);
+  assert.equal((await api('/login', { metodo: 'POST', corpo: { codigo: 'robo-1', login: 'robo1', senha: 'Senha1234' } })).status, 401);
+  // CSV: relato que começa com "=" não vira fórmula no Excel.
+  const tipo = (await api('/tipos', { token: E })).dados.find((t) => t.codigo === 'A16');
+  await api('/ocorrencias', { token: E, metodo: 'POST', corpo: { tipo_id: tipo.id, data: '2026-11-10', hora: '09:00', local: 'Sala de aula',
+    relato: '=HYPERLINK("http://exemplo","clique") e outras coisas', alunos: [{ nome: '@Aluno Teste' }] } });
+  const csv = (await api('/ocorrencias.csv', { token: E })).dados;
+  assert.match(csv, /"'=HYPERLINK/);
+  assert.match(csv, /"'@ALUNO TESTE/);
+  assert.equal(P.length > 0, true);
+});

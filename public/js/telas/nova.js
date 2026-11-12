@@ -96,7 +96,7 @@ function caixaProtocolo() {
     ? `Protocolo 179 — ${tipo.codigo} ${tipo.descricao}: marque o que já foi feito`
     : `Intervenções pedagógicas já realizadas — Art. 7º, ${RES68}`;
   return `<fieldset class="protocolo prot-${categoria}">
-      <legend>${titulo}</legend>
+      <legend>${esc(titulo)}</legend>
       ${urg ? `<div class="telefones">
           <a href="tel:190" data-icone="telefone">PM <b>190</b></a><a href="tel:192" data-icone="ambulancia">SAMU <b>192</b></a><a href="tel:193" data-icone="fogo">Bombeiros <b>193</b></a></div>` : ''}
       ${htmlPassos(passos)}

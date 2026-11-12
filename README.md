@@ -152,7 +152,9 @@ As tabelas são criadas sozinhas na primeira vez que o sistema liga.
    - `DATABASE_URL`: a connection string do Neon;
    - `JWT_SECRET`: uma frase longa e aleatória, com 40 caracteres ou mais. Ninguém precisa decorar;
    - `CADASTRO_CHAVE`: uma senha que você passa só para as escolas autorizadas a se cadastrar;
-   - `PG_MAX_CONEXOES`: `1` (cada instância da Vercel atende uma pessoa por vez).
+   - `PG_MAX_CONEXOES`: `1` (cada instância da Vercel atende uma pessoa por vez);
+   - `LIMITE_CADASTROS_DIA` (opcional): quantas escolas podem se cadastrar por dia, somadas. O padrão é 50, e `0`
+     tira o limite. Protege o banco gratuito contra robôs quando o cadastro está aberto.
 4. Clique em **Deploy**. Em 1 ou 2 minutos o site fica no ar num endereço como `https://sisroe.vercel.app`.
 
 Cada novo commit na branch `main` publica a nova versão sozinho.

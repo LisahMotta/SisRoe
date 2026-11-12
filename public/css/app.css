@@ -732,3 +732,6 @@ body.tem-aviso-versao #avisos { top: 72px; }
 .txt-perigo { color: #b91c1c; }
 .linha-alerta td { background: #fef2f2; }
 #lote-previa .tabela-rolagem { max-height: 360px; overflow-y: auto; margin-bottom: 12px; }
+
+/* Campo invisível do cadastro: só robôs o preenchem */
+.campo-armadilha { position: absolute !important; left: -9999px; width: 1px; height: 1px; overflow: hidden; }

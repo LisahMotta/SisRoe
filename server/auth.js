@@ -16,7 +16,7 @@ if (!SECRET) {
 const DURACAO = '10h'; // um dia de trabalho na escola
 
 export function gerarToken(u) {
-  return jwt.sign({ uid: u.id, eid: u.escola_id }, SECRET, { expiresIn: DURACAO });
+  return jwt.sign({ uid: u.id, eid: u.escola_id }, SECRET, { expiresIn: DURACAO, algorithm: 'HS256' });
 }
 
 /**
@@ -30,7 +30,7 @@ export async function autenticar(req, res, next) {
   if (!token) return res.status(401).json({ erro: 'Faça login para continuar.' });
   let dados;
   try {
-    dados = jwt.verify(token, SECRET);
+    dados = jwt.verify(token, SECRET, { algorithms: ['HS256'] });
   } catch {
     return res.status(401).json({ erro: 'Sessão expirada. Faça login novamente.' });
   }

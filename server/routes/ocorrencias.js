@@ -105,7 +105,12 @@ r.get('/ocorrencias.csv', exigeGestao, rota(async (req, res) => {
   const { where, params } = filtros(req);
   const lista = await anexarAlunos(req.usuario.escola_id, await db.all(
     `SELECT o.* FROM ocorrencias o WHERE ${where} ORDER BY o.data, o.hora, o.id LIMIT 5000`, params));
-  const cel = (v) => `"${String(v ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
+  // Texto que começa com = + - @ vira fórmula no Excel (ex.: =HYPERLINK no relato): o apóstrofo neutraliza.
+  const cel = (v) => {
+    let s = String(v ?? '').replace(/\r?\n/g, ' ');
+    if (/^[=+\-@\t]/.test(s)) s = `'${s}`;
+    return `"${s.replace(/"/g, '""')}"`;
+  };
   const cab = ['Número', 'Data', 'Hora', 'Categoria', 'Macrocategoria (Protocolo 179)', 'Código', 'Tipo', 'Gravidade', 'Turma', 'Local', 'Alunos',
     'Status', 'Família comunicada', 'Conselho Tutelar', 'Registro CONVIVA', 'B.O.', 'Registrado por', 'Relato'];
   const linhas = lista.map((o) => [
