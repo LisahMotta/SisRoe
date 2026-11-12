@@ -45,6 +45,6 @@ Multi-school (multi-tenant) incident log. Express backend + vanilla JS SPA (ES m
   push text never includes student names). PDF: `server/pdf.js` (pdfkit, Helvetica/WinAnsi — `limpo()` sanitizes text).
 - SED import: CSV parsed in the browser (`public/js/sed.js`), rows sent to `POST /alunos/importar-sed`; RA matched with
   `LTRIM(ra,'0')`. Carômetro photos are resized client-side and stored in `fotos_alunos` (no persistent disk on Vercel).
-  Busca ativa: `routes/busca.js`; WhatsApp only opens `wa.me` links (`public/js/whatsapp.js`), never sends by itself.
+  Busca ativa: `routes/busca.js` (access = `PERFIS_BUSCA`: gestão + agente, gerente, secretaria; not professor); WhatsApp only opens `wa.me` links (`public/js/whatsapp.js`), never sends by itself.
 - Integrity rules: the original relato is never edited (use notas), gravidade only goes up, ocorrências are cancelled
   (with a reason), never deleted.

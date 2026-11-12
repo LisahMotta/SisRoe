@@ -1,5 +1,5 @@
 // telas/equipe.js — equipe gestora gera nova senha provisória para quem esqueceu.
-// Coordenação e POC: professores e agentes. Direção e vice: todos (também em Administração).
+// Coordenação e POC: professores, agentes, GOE e secretaria. Direção e vice: todos (também em Administração).
 import { api } from '../api.js';
 import { $, $$, esc, avisarErro, abrirModal } from '../ui.js';
 import { estado, ehGestao, ehAdmin } from '../app.js';
@@ -26,7 +26,7 @@ export async function render(el) {
   box.innerHTML = `
     <div class="cab-tela"><h1>Equipe</h1>${ehAdmin() ? '<a class="btn" href="#/admin/usuarios" data-icone="admin">Cadastrar usuários</a>' : ''}</div>
     <p class="ajuda">Quando alguém esquecer a senha, clique em <b>Nova senha</b> e entregue a senha provisória pessoalmente.
-      ${ehAdmin() ? '' : 'Coordenação e POC podem fazer isso para professores e agentes; para outros perfis, procure a direção.'}</p>
+      ${ehAdmin() ? '' : 'Coordenação e POC podem fazer isso para professores, agentes, gerente de organização escolar e secretário(a); para outros perfis, procure a direção.'}</p>
     <div class="cartao">
       <label>Buscar <input type="search" id="eq-busca" placeholder="Nome ou usuário"></label>
       <div class="tabela-rolagem"><table class="tabela">
@@ -37,7 +37,7 @@ export async function render(el) {
             <td>${u.trocar_senha ? '<span class="selo st-aberta">Aguardando 1º acesso</span>' : '<span class="selo st-encerrada">Ativo</span>'}</td>
             <td><button class="btn btn-peq" data-reset="${u.id}" data-nome="${esc(u.nome)}" data-login="${esc(u.login)}" data-icone="chave">Nova senha</button></td>
           </tr>`).join('')}</tbody></table></div>
-      ${lista.length ? '' : '<p class="vazio">Nenhum professor ou agente cadastrado.</p>'}
+      ${lista.length ? '' : '<p class="vazio">Ninguém cadastrado ainda.</p>'}
     </div>`;
   $('#eq-busca', box).addEventListener('input', (e) => {
     const q = e.target.value.toLowerCase();

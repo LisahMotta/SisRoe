@@ -1,8 +1,8 @@
-// telas/busca.js — busca ativa de estudantes faltosos (equipe gestora).
+// telas/busca.js — busca ativa de estudantes faltosos (gestão, agentes, GOE e secretaria).
 // Lista de casos, registro de faltosos por turma e ficha do caso com WhatsApp.
 import { api } from '../api.js';
 import { $, $$, esc, dataBR, dataHoraBR, lerForm, avisar, avisarErro, abrirModal, fecharModal, comCarregando, hojeISO, aplicarIcones } from '../ui.js';
-import { estado, ehGestao } from '../app.js';
+import { estado, podeBuscaAtiva } from '../app.js';
 import { STATUS_BUSCA, STATUS_BUSCA_FINAIS, TIPOS_ACAO_BUSCA, RISCOS_BUSCA } from '../catalogo.js';
 import { montarMensagem, linkWhatsApp, telefoneBR, numeroWhatsApp } from '../whatsapp.js';
 
@@ -11,7 +11,7 @@ const seloRisco = (r) => `<span class="selo risco-${esc(r)}">${esc(RISCOS_BUSCA[
 let filtroStatus = '';
 
 export async function render(el, [id]) {
-  if (!ehGestao()) { el.innerHTML = '<div class="cartao">A busca ativa é restrita à equipe gestora.</div>'; return; }
+  if (!podeBuscaAtiva()) { el.innerHTML = '<div class="cartao">A busca ativa é feita pela equipe gestora, agentes, gerente de organização escolar e secretaria.</div>'; return; }
   if (id) return ficha(el, Number(id));
 
   el.innerHTML = `

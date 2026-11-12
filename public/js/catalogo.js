@@ -63,6 +63,8 @@ export const STATUS = {
 export const PERFIS = {
   professor: 'Professor(a)',
   agente: 'Agente de Organização Escolar',
+  gerente: 'Gerente de Organização Escolar',
+  secretaria: 'Secretário(a) de Escola',
   poc: 'P.O.C. (Prof. Orientador de Convivência)',
   coordenador: 'Coordenador(a) Pedagógico(a)',
   vice: 'Vice-Diretor(a)',
@@ -72,6 +74,8 @@ export const PERFIS = {
 export const PERFIS_GESTAO = ['poc', 'coordenador', 'vice', 'diretor'];
 // Quem administra usuários, turmas, alunos e tipos.
 export const PERFIS_ADMIN = ['vice', 'diretor'];
+// Quem cuida da busca ativa de faltosos: equipe gestora + agente, GOE e secretaria (professor não).
+export const PERFIS_BUSCA = ['agente', 'gerente', 'secretaria', 'poc', 'coordenador', 'vice', 'diretor'];
 
 export const PAPEIS_ALUNO = {
   envolvido: 'Envolvido(a)',

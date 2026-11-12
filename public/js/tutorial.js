@@ -50,7 +50,7 @@ const NOTIF = {
 const AVISOS_GESTAO = {
   icone: 'alerta',
   titulo: 'Receber os avisos de ocorrência nova',
-  texto: 'Cada ocorrência registrada por professores e agentes gera um aviso na sua tela ("Nova ocorrência"). Clique em "Abrir ocorrência e chat" para ver os detalhes e responder quem registrou.\n'
+  texto: 'Cada ocorrência registrada pela equipe (professores, agentes, gerente de organização escolar e secretaria) gera um aviso na sua tela ("Nova ocorrência"). Clique em "Abrir ocorrência e chat" para ver os detalhes e responder quem registrou.\n'
     + 'Ative as notificações em "Minha conta" para ser avisado(a) mesmo com o sistema fechado.',
 };
 
@@ -85,7 +85,7 @@ const EQUIPE = {
   icone: 'chave',
   rota: '#/equipe',
   titulo: 'Ajudar quem esqueceu a senha',
-  texto: 'Em "Equipe", encontre o professor ou agente e clique em "Nova senha". O sistema gera uma senha provisória: entregue pessoalmente. No primeiro acesso a pessoa é obrigada a criar uma senha nova.',
+  texto: 'Em "Equipe e senhas", encontre a pessoa (professor, agente, gerente de organização escolar ou secretário) e clique em "Nova senha". O sistema gera uma senha provisória: entregue pessoalmente. No primeiro acesso a pessoa é obrigada a criar uma senha nova.',
 };
 
 const PDF = {
@@ -136,7 +136,15 @@ export const TUTORIAIS = {
   },
   agente: {
     resumo: 'Você registra o que acontece nos corredores, no pátio e no intervalo (incidentes, acidentes, saídas sem permissão) e avisa a equipe gestora.',
-    passos: [ACESSO, { ...REGISTRAR, texto: REGISTRAR.texto.replace('(dá para buscar digitando, ex.: "boné", "celular", "intervalo")', '(no intervalo use "Incidente no intervalo" ou "Acidente leve"; dá para buscar digitando)') }, CHAT_PROF, MINHAS, CAROMETRO, NOTIF],
+    passos: [ACESSO, { ...REGISTRAR, texto: REGISTRAR.texto.replace('(dá para buscar digitando, ex.: "boné", "celular", "intervalo")', '(no intervalo use "Incidente no intervalo" ou "Acidente leve"; dá para buscar digitando)') }, CHAT_PROF, MINHAS, BUSCA, CAROMETRO, NOTIF],
+  },
+  gerente: {
+    resumo: 'Como Gerente de Organização Escolar, você registra o que acontece nos espaços da escola (pátio, corredores, entrada e saída, intervalo), acompanha os registros dos agentes e conversa com a equipe gestora.',
+    passos: [ACESSO, { ...REGISTRAR, texto: REGISTRAR.texto.replace('(dá para buscar digitando, ex.: "boné", "celular", "intervalo")', '(para os espaços da escola: "Incidente no intervalo", "Acidente leve", "Saiu da escola mais cedo"; dá para buscar digitando)') }, CHAT_PROF, MINHAS, BUSCA, CAROMETRO, NOTIF],
+  },
+  secretaria: {
+    resumo: 'Como Secretário(a) de Escola, você registra ocorrências que chegam à secretaria (atendimento a famílias, saídas antecipadas, documentos) e conversa com a equipe gestora sobre cada uma.',
+    passos: [ACESSO, { ...REGISTRAR, texto: REGISTRAR.texto.replace('(dá para buscar digitando, ex.: "boné", "celular", "intervalo")', '(ex.: "Saiu da escola mais cedo sem autorização", "Alerta de desaparecimento", "Evasão escolar"; dá para buscar digitando)') }, CHAT_PROF, MINHAS, BUSCA, CAROMETRO, NOTIF],
   },
   poc: {
     resumo: 'Como Professor(a) Orientador(a) de Convivência, você acompanha as ocorrências, faz a escuta e a mediação e ajuda a equipe com as senhas dos professores.',
